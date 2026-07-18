@@ -135,3 +135,17 @@ export async function deleteWorker(id) {
     return null;
   }
 }
+
+export async function loginWorker(username, password) {
+  try {
+    const res = await fetch(`${API_BASE}/workers/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    return await res.json();
+  } catch (e) {
+    console.error("Error logging in", e);
+    return null;
+  }
+}

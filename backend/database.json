@@ -163,6 +163,38 @@
   ],
   "transactions": [
     {
+      "billNo": "BILL-20260718-0058",
+      "timestamp": "2026-07-18T04:18:49.892Z",
+      "customerName": "",
+      "customerPhone": "",
+      "items": [
+        {
+          "id": "item-1784348320164-0.8828122347775151",
+          "name": "Item 1",
+          "price": 200,
+          "qty": 1,
+          "total": 200
+        },
+        {
+          "id": "item-1784348324211-0.7180923844695467",
+          "name": "Item 2",
+          "price": 652,
+          "qty": 1,
+          "total": 652
+        }
+      ],
+      "subtotal": 852,
+      "discount": 0,
+      "grandTotal": 852,
+      "paymentMode": "UPI",
+      "cashTendered": 852,
+      "changeReturned": 0,
+      "upiRefNo": "UPI/639974481282",
+      "cardRefNo": "",
+      "workerName": "Balram Kumar",
+      "status": "COMPLETED"
+    },
+    {
       "billNo": "BILL-20260718-0038",
       "timestamp": "2026-07-18T02:59:50.911Z",
       "customerName": "",
@@ -462,6 +494,17 @@
     "customQrImage": ""
   },
   "bill_counter": {
-    "20260718": 55
-  }
+    "20260718": 59
+  },
+  "workers": [
+    {
+      "id": "worker-1784348275403",
+      "name": "Balram Kumar",
+      "counter": "1",
+      "phone": "9304043399",
+      "username": "12345",
+      "password": "12345",
+      "role": "Cashier"
+    }
+  ]
 }

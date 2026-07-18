@@ -17,18 +17,22 @@ import {
   Clock,
   Infinity,
   ShoppingBag,
+  Users,
 } from "lucide-react";
 
 export default function OwnerDashboard({
   transactions,
   products,
   settings,
+  workers,
   onUpdateSettings,
   onAddProduct,
   onUpdateProduct,
   onReprintBill,
   onCancelBill,
   onReloadData,
+  onSaveWorker,
+  onDeleteWorker,
 }) {
   const [subTab, setSubTab] = useState("overview");
   const [monitorPeriod, setMonitorPeriod] = useState("today");
@@ -61,6 +65,17 @@ export default function OwnerDashboard({
     mrp: "",
     stock: "",
     barcode: "",
+  });
+
+  const [isWorkerModalOpen, setIsWorkerModalOpen] = useState(false);
+  const [editingWorker, setEditingWorker] = useState(null);
+  const [workerForm, setWorkerForm] = useState({
+    name: "",
+    counter: "1",
+    phone: "",
+    username: "",
+    password: "",
+    role: "Cashier",
   });
 
   const kpis = useMemo(() => {
@@ -219,6 +234,29 @@ export default function OwnerDashboard({
     setIsProductModalOpen(false);
   };
 
+  const handleOpenAddWorker = () => {
+    setEditingWorker(null);
+    setWorkerForm({
+      name: "",
+      counter: "1",
+      phone: "",
+      username: `cashier${Math.floor(10 + Math.random() * 90)}`,
+      password: "",
+      role: "Cashier",
+    });
+    setIsWorkerModalOpen(true);
+  };
+
+  const handleWorkerSubmit = (e) => {
+    e.preventDefault();
+    const newWorker = {
+      id: editingWorker ? editingWorker.id : `worker-${Date.now()}`,
+      ...workerForm,
+    };
+    onSaveWorker(newWorker);
+    setIsWorkerModalOpen(false);
+  };
+
   return (
     <div className="dashboard-container">
       <div
@@ -235,6 +273,7 @@ export default function OwnerDashboard({
             { id: "overview", label: "Analytics & Sales Monitor", icon: TrendingUp },
             { id: "transactions", label: "All Bills & Receipts", icon: Receipt },
             { id: "inventory", label: "Clothing Stock Manager", icon: Package },
+            { id: "workers", label: "Staff & Counters", icon: Users },
             { id: "settings", label: "Store & UPI Settings", icon: Settings },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -821,6 +860,106 @@ export default function OwnerDashboard({
         </div>
       )}
 
+      {subTab === "workers" && (
+        <div className="table-panel">
+          <div className="panel-title">
+            <span>Staff & Counter Management</span>
+            <button
+              onClick={handleOpenAddWorker}
+              className="checkout-btn"
+              style={{ padding: "8px 16px", fontSize: "13px" }}
+            >
+              <Plus size={16} />
+              <span>Add Cashier Account</span>
+            </button>
+          </div>
+
+          {/* Worker Cards / Table */}
+          <table className="custom-table" style={{ marginTop: "16px" }}>
+            <thead>
+              <tr>
+                <th>Cashier Name</th>
+                <th>Counter No.</th>
+                <th>Contact</th>
+                <th>Username (Login)</th>
+                <th>Bills Generated</th>
+                <th>Total Sales</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(workers || []).map((w) => {
+                // Calculate their performance from transactions
+                const theirTx = transactions.filter(
+                  (t) => t.status !== "CANCELLED" && t.workerName === w.name
+                );
+                const sales = theirTx.reduce((sum, t) => sum + t.grandTotal, 0);
+                return (
+                  <tr key={w.id}>
+                    <td style={{ fontWeight: "700", color: "var(--text-main)" }}>
+                      {w.name}
+                    </td>
+                    <td>
+                      <span style={{
+                        padding: "2px 8px", borderRadius: "12px", fontSize: "11px",
+                        background: "rgba(59,130,246,0.1)", color: "var(--accent-blue)", fontWeight: "bold"
+                      }}>
+                        Counter {w.counter}
+                      </span>
+                    </td>
+                    <td>{w.phone || "N/A"}</td>
+                    <td style={{ fontFamily: "var(--font-mono)" }}>{w.username}</td>
+                    <td style={{ fontWeight: "600" }}>{theirTx.length} bills</td>
+                    <td style={{ fontWeight: "bold", color: "var(--accent-emerald)" }}>
+                      ₹{sales.toFixed(2)}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button
+                          onClick={() => {
+                            setEditingWorker(w);
+                            setWorkerForm({ ...w, password: "" });
+                            setIsWorkerModalOpen(true);
+                          }}
+                          style={{
+                            padding: "4px 10px", borderRadius: "4px",
+                            background: "var(--bg-primary)", border: "1px solid var(--border-color)",
+                            fontSize: "11px", cursor: "pointer"
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm("Are you sure you want to delete this cashier account?")) {
+                              onDeleteWorker(w.id);
+                            }
+                          }}
+                          style={{
+                            padding: "4px 10px", borderRadius: "4px",
+                            background: "rgba(244, 63, 94, 0.1)", border: "1px solid rgba(244, 63, 94, 0.3)",
+                            color: "var(--accent-rose)", fontSize: "11px", cursor: "pointer"
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {(workers || []).length === 0 && (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: "center", padding: "30px", color: "var(--text-dim)" }}>
+                    No cashier accounts created yet. Click "Add Cashier Account" to create one.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {subTab === "settings" && (
         <div className="table-panel" style={{ maxWidth: "650px" }}>
           <div className="panel-title">Store & Billing Machine Settings</div>
@@ -1115,6 +1254,91 @@ export default function OwnerDashboard({
 
               <button type="submit" className="checkout-btn" style={{ marginTop: "10px" }}>
                 {editingProduct ? "Update Stock Item" : "Add to Inventory"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+      {isWorkerModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: "450px" }}>
+            <div className="modal-header">
+              <h2 className="modal-title">
+                {editingWorker ? "Edit Cashier Account" : "Add New Cashier"}
+              </h2>
+              <button
+                onClick={() => setIsWorkerModalOpen(false)}
+                style={{ background: "transparent", color: "var(--text-muted)" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleWorkerSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div className="form-group">
+                <label className="form-label">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  className="form-control"
+                  value={workerForm.name}
+                  onChange={(e) => setWorkerForm({ ...workerForm, name: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div className="form-group">
+                  <label className="form-label">Counter Number</label>
+                  <select
+                    className="form-control"
+                    value={workerForm.counter}
+                    onChange={(e) => setWorkerForm({ ...workerForm, counter: e.target.value })}
+                  >
+                    {[1, 2, 3, 4, 5, 6].map((c) => (
+                      <option key={c} value={String(c)}>Counter {c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Contact Phone</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={workerForm.phone}
+                    onChange={(e) => setWorkerForm({ ...workerForm, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ padding: "12px", background: "var(--bg-primary)", borderRadius: "8px", border: "1px solid var(--border-color)", marginTop: "10px" }}>
+                <div style={{ fontSize: "12px", fontWeight: "600", marginBottom: "10px", color: "var(--accent-indigo)" }}>Login Credentials</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <div className="form-group">
+                    <label className="form-label">Username</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-control"
+                      value={workerForm.username}
+                      onChange={(e) => setWorkerForm({ ...workerForm, username: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Password</label>
+                    <input
+                      type="password"
+                      required={!editingWorker}
+                      className="form-control"
+                      placeholder={editingWorker ? "(Leave blank to keep current)" : ""}
+                      value={workerForm.password}
+                      onChange={(e) => setWorkerForm({ ...workerForm, password: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" className="checkout-btn" style={{ marginTop: "10px" }}>
+                {editingWorker ? "Save Changes" : "Create Account"}
               </button>
             </form>
           </div>

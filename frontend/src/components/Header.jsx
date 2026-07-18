@@ -6,12 +6,15 @@ import {
   Clock,
   User,
   Settings,
+  LogOut,
 } from "lucide-react";
 
 export default function Header({
   activeTab,
   setActiveTab,
   settings,
+  currentUser,
+  onLogout,
   onOpenSettings,
 }) {
   const [timeStr, setTimeStr] = useState("");
@@ -63,13 +66,15 @@ export default function Header({
           <span>Billing Counter</span>
         </button>
 
-        <button
-          className={`nav-tab-btn ${activeTab === "owner" ? "active" : ""}`}
-          onClick={() => setActiveTab("owner")}
-        >
-          <LayoutDashboard size={16} />
-          <span>Owner Dashboard</span>
-        </button>
+        {currentUser?.role === "owner" && (
+          <button
+            className={`nav-tab-btn ${activeTab === "owner" ? "active" : ""}`}
+            onClick={() => setActiveTab("owner")}
+          >
+            <LayoutDashboard size={16} />
+            <span>Owner Dashboard</span>
+          </button>
+        )}
       </div>
 
       <div className="header-right">
@@ -78,19 +83,30 @@ export default function Header({
           <span>{dateStr} | {timeStr}</span>
         </div>
 
-        <div className="status-badge">
+        <div className="status-badge" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <span className="status-dot"></span>
           <User size={12} />
-          <span>{settings?.workerName || "Worker Online"}</span>
+          <span>{currentUser?.name || "Online"} (C{currentUser?.counter || "1"})</span>
         </div>
+
+        {currentUser?.role === "owner" && (
+          <button
+            className="nav-tab-btn"
+            onClick={onOpenSettings}
+            title="Store Settings"
+            style={{ padding: "8px" }}
+          >
+            <Settings size={18} />
+          </button>
+        )}
 
         <button
           className="nav-tab-btn"
-          onClick={onOpenSettings}
-          title="Store Settings"
-          style={{ padding: "8px" }}
+          onClick={onLogout}
+          title="Logout"
+          style={{ padding: "8px", color: "var(--accent-rose)" }}
         >
-          <Settings size={18} />
+          <LogOut size={18} />
         </button>
       </div>
     </header>

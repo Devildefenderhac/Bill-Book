@@ -4,6 +4,7 @@ import BillingView from "./components/BillingView";
 import OwnerDashboard from "./components/OwnerDashboard";
 import PaymentModal from "./components/PaymentModal";
 import PrintReceipt from "./components/PrintReceipt";
+import LoginScreen from "./components/LoginScreen";
 import {
   fetchProducts,
   saveProduct,
@@ -13,6 +14,9 @@ import {
   fetchSettings,
   saveSettings,
   cancelTransaction,
+  fetchWorkers,
+  saveWorker,
+  deleteWorker,
 } from "./utils/api";
 import { INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS } from "./data/initialData";
 
@@ -21,6 +25,8 @@ export default function App() {
   const [settings, setSettings] = useState(INITIAL_STORE_SETTINGS);
   const [products, setProducts] = useState(INITIAL_PRODUCTS);
   const [transactions, setTransactions] = useState([]);
+  const [workers, setWorkers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [cart, setCart] = useState([]);
   const [currentBillNo, setCurrentBillNo] = useState("BILL-20260718-0001");
@@ -42,6 +48,9 @@ export default function App() {
 
     const apiSet = await fetchSettings();
     if (apiSet && Object.keys(apiSet).length > 0) setSettings(apiSet);
+
+    const apiWorkers = await fetchWorkers();
+    if (apiWorkers) setWorkers(apiWorkers);
   };
 
   useEffect(() => {
@@ -61,6 +70,24 @@ export default function App() {
   const handleUpdateProduct = async (updatedProd) => {
     setProducts((prev) => prev.map((p) => (p.id === updatedProd.id ? updatedProd : p)));
     await saveProduct(updatedProd);
+  };
+
+  const handleSaveWorker = async (worker) => {
+    const res = await saveWorker(worker);
+    if (res && res.success) {
+      setWorkers((prev) => {
+        const exists = prev.find((w) => w.id === res.worker.id);
+        if (exists) return prev.map((w) => (w.id === res.worker.id ? res.worker : w));
+        return [...prev, res.worker];
+      });
+    }
+  };
+
+  const handleDeleteWorker = async (id) => {
+    const res = await deleteWorker(id);
+    if (res && res.success) {
+      setWorkers((prev) => prev.filter((w) => w.id !== id));
+    }
   };
 
   const handleInitiatePayment = (cartSummary) => {
@@ -92,7 +119,7 @@ export default function App() {
       changeReturned,
       upiRefNo,
       cardRefNo,
-      workerName: settings.workerName || "Cashier Counter 1",
+      workerName: currentUser ? currentUser.name : "Cashier Counter 1",
       status: "COMPLETED",
     };
 
@@ -132,12 +159,25 @@ export default function App() {
     loadLiveData();
   };
 
+  if (!currentUser) {
+    return (
+      <LoginScreen
+        onLogin={(user) => {
+          setCurrentUser(user);
+          setActiveTab(user.role === "owner" ? "owner" : "billing");
+        }}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         settings={settings}
+        currentUser={currentUser}
+        onLogout={() => setCurrentUser(null)}
         onOpenSettings={() => setActiveTab("owner")}
       />
 
@@ -155,9 +195,12 @@ export default function App() {
             transactions={transactions}
             products={products}
             settings={settings}
+            workers={workers}
             onUpdateSettings={handleUpdateSettings}
             onAddProduct={handleAddProduct}
             onUpdateProduct={handleUpdateProduct}
+            onSaveWorker={handleSaveWorker}
+            onDeleteWorker={handleDeleteWorker}
             onReprintBill={handleReprintBill}
             onCancelBill={handleCancelBill}
             onReloadData={loadLiveData}

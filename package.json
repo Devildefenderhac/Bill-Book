@@ -1,0 +1,13 @@
+{
+  "name": "clothing-mall-pos",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Full-Stack Windows Clothing Mall POS System (React UI + Tauri Wrapper + Node.js Backend + SQLite)",
+  "type": "module",
+  "scripts": {
+    "start:backend": "node backend/server.js",
+    "start:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "desktop": "npx electron electron/main.cjs"
+  }
+}

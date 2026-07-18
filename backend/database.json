@@ -1,0 +1,467 @@
+{
+  "products": [
+    {
+      "id": "prod-001",
+      "code": "TSH-M-101",
+      "name": "Classic Crew Neck Cotton T-Shirt",
+      "category": "Men",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL"
+      ],
+      "price": 699,
+      "mrp": 1299,
+      "stock": 45,
+      "barcode": "890100100101"
+    },
+    {
+      "id": "prod-002",
+      "code": "JNS-M-102",
+      "name": "Slim Fit Stretch Denim Jeans",
+      "category": "Men",
+      "sizes": [
+        "30",
+        "32",
+        "34",
+        "36"
+      ],
+      "price": 1899,
+      "mrp": 2999,
+      "stock": 28,
+      "barcode": "890100100102"
+    },
+    {
+      "id": "prod-003",
+      "code": "SRT-M-103",
+      "name": "Pure Linen Casual Button Shirt",
+      "category": "Men",
+      "sizes": [
+        "M",
+        "L",
+        "XL"
+      ],
+      "price": 1499,
+      "mrp": 2299,
+      "stock": 30,
+      "barcode": "890100100103"
+    },
+    {
+      "id": "prod-004",
+      "code": "DRS-W-201",
+      "name": "Floral Print Chiffon Midi Dress",
+      "category": "Women",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "price": 2199,
+      "mrp": 3499,
+      "stock": 18,
+      "barcode": "890100100201"
+    },
+    {
+      "id": "prod-005",
+      "code": "TOP-W-202",
+      "name": "Satin V-Neck Elegant Blouse",
+      "category": "Women",
+      "sizes": [
+        "XS",
+        "S",
+        "M",
+        "L"
+      ],
+      "price": 999,
+      "mrp": 1699,
+      "stock": 35,
+      "barcode": "890100100202"
+    },
+    {
+      "id": "prod-006",
+      "code": "JNS-W-203",
+      "name": "High-Waist Wide Leg Denim",
+      "category": "Women",
+      "sizes": [
+        "26",
+        "28",
+        "30",
+        "32"
+      ],
+      "price": 1799,
+      "mrp": 2799,
+      "stock": 22,
+      "barcode": "890100100203"
+    },
+    {
+      "id": "prod-007",
+      "code": "KID-B-301",
+      "name": "Boys Cartoon Printed Cotton Set",
+      "category": "Kids",
+      "sizes": [
+        "2-3Y",
+        "4-5Y",
+        "6-7Y",
+        "8-9Y"
+      ],
+      "price": 799,
+      "mrp": 1299,
+      "stock": 50,
+      "barcode": "890100100301"
+    },
+    {
+      "id": "prod-008",
+      "code": "KID-G-302",
+      "name": "Girls Embroidered Party Frock",
+      "category": "Kids",
+      "sizes": [
+        "3-4Y",
+        "5-6Y",
+        "7-8Y"
+      ],
+      "price": 1299,
+      "mrp": 1999,
+      "stock": 25,
+      "barcode": "890100100302"
+    },
+    {
+      "id": "prod-009",
+      "code": "ETH-M-401",
+      "name": "Silk Blend Kurta Pyjama Set",
+      "category": "Ethnic",
+      "sizes": [
+        "38",
+        "40",
+        "42",
+        "44"
+      ],
+      "price": 2499,
+      "mrp": 3999,
+      "stock": 15,
+      "barcode": "890100100401"
+    },
+    {
+      "id": "prod-010",
+      "code": "ETH-W-402",
+      "name": "Designer Anarkali Suit with Dupatta",
+      "category": "Ethnic",
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL"
+      ],
+      "price": 3499,
+      "mrp": 5999,
+      "stock": 12,
+      "barcode": "890100100402"
+    }
+  ],
+  "transactions": [
+    {
+      "billNo": "BILL-20260718-0038",
+      "timestamp": "2026-07-18T02:59:50.911Z",
+      "customerName": "",
+      "customerPhone": "",
+      "items": [
+        {
+          "id": "item-1784343538577-0.41103816449389696",
+          "name": "Item 1",
+          "price": 761.3,
+          "qty": 1,
+          "total": 761.3
+        },
+        {
+          "id": "item-1784343545011-0.8620913252396016",
+          "name": "Item 2",
+          "price": 814.59,
+          "qty": 1,
+          "total": 814.59
+        },
+        {
+          "id": "item-1784343549405-0.9920761164015748",
+          "name": "Item 3",
+          "price": 824.11,
+          "qty": 1,
+          "total": 824.11
+        }
+      ],
+      "subtotal": 2400,
+      "discount": 0,
+      "grandTotal": 2400,
+      "paymentMode": "UPI",
+      "cashTendered": 2400,
+      "changeReturned": 0,
+      "upiRefNo": "UPI/132684761252",
+      "cardRefNo": "",
+      "workerName": "Cashier Counter 1",
+      "status": "COMPLETED"
+    },
+    {
+      "billNo": "BILL-20260718-0035",
+      "timestamp": "2026-07-18T02:50:02.373Z",
+      "customerName": "",
+      "customerPhone": "",
+      "items": [
+        {
+          "id": "item-1784342967052-0.3546363079721354",
+          "name": "Item 1",
+          "price": 88.89,
+          "qty": 7,
+          "total": 622.23
+        },
+        {
+          "id": "item-1784342970623-0.05022014014292042",
+          "name": "Item 2",
+          "price": 177.78,
+          "qty": 1,
+          "total": 177.78
+        }
+      ],
+      "subtotal": 800.01,
+      "discount": 0,
+      "grandTotal": 800.01,
+      "paymentMode": "UPI",
+      "cashTendered": 800.01,
+      "changeReturned": 0,
+      "upiRefNo": "UPI/174550183898",
+      "cardRefNo": "",
+      "workerName": "Cashier Counter 1",
+      "status": "COMPLETED"
+    },
+    {
+      "billNo": "BILL-20260718-0028",
+      "timestamp": "2026-07-18T02:44:30.470Z",
+      "customerName": "",
+      "customerPhone": "",
+      "items": [
+        {
+          "id": "item-1784342642960-0.546356430349212",
+          "name": "Item 1",
+          "price": 407.89,
+          "qty": 1,
+          "total": 407.89
+        },
+        {
+          "id": "item-1784342646462-0.3727455907807601",
+          "name": "Item 2",
+          "price": 754.84,
+          "qty": 1,
+          "total": 754.84
+        },
+        {
+          "id": "item-1784342650206-0.4801208955695041",
+          "name": "Item 3",
+          "price": 703.27,
+          "qty": 1,
+          "total": 703.27
+        }
+      ],
+      "subtotal": 1866,
+      "discount": 0,
+      "grandTotal": 1866,
+      "paymentMode": "UPI",
+      "cashTendered": 1866,
+      "changeReturned": 0,
+      "upiRefNo": "UPI/797891776722",
+      "cardRefNo": "",
+      "workerName": "Cashier Counter 1",
+      "status": "CANCELLED"
+    },
+    {
+      "billNo": "BILL-20260718-0027",
+      "timestamp": "2026-07-18T02:42:02.127Z",
+      "customerName": "",
+      "customerPhone": "",
+      "items": [
+        {
+          "id": "item-1784342514241-0.13875806332004514",
+          "name": "Item 1",
+          "price": 622,
+          "qty": 1,
+          "total": 622
+        },
+        {
+          "id": "item-1784342518149-0.7926706741598762",
+          "name": "Item 2",
+          "price": 9692,
+          "qty": 1,
+          "total": 9692
+        }
+      ],
+      "subtotal": 10314,
+      "discount": 0,
+      "grandTotal": 10314,
+      "paymentMode": "UPI",
+      "cashTendered": 10314,
+      "changeReturned": 0,
+      "upiRefNo": "UPI/332909693579",
+      "cardRefNo": "",
+      "workerName": "Cashier Counter 1",
+      "status": "CANCELLED"
+    },
+    {
+      "billNo": "BILL-20260718-0026",
+      "timestamp": "2026-07-18T02:41:35.497Z",
+      "customerName": "",
+      "customerPhone": "",
+      "items": [
+        {
+          "id": "item-1784342483193-0.21449118538750378",
+          "name": "Item 1",
+          "price": 8556,
+          "qty": 1,
+          "total": 8556
+        },
+        {
+          "id": "item-1784342489126-0.3714012616908934",
+          "name": "Item 2",
+          "price": 962,
+          "qty": 1,
+          "total": 962
+        }
+      ],
+      "subtotal": 9518,
+      "discount": 0,
+      "grandTotal": 9518,
+      "paymentMode": "UPI",
+      "cashTendered": 9518,
+      "changeReturned": 0,
+      "upiRefNo": "UPI/766074603486",
+      "cardRefNo": "",
+      "workerName": "Cashier Counter 1",
+      "status": "CANCELLED"
+    },
+    {
+      "billNo": "BILL-20260718-0023",
+      "timestamp": "2026-07-18T02:34:14.504Z",
+      "customerName": "",
+      "customerPhone": "",
+      "items": [
+        {
+          "id": "item-1784341960026-0.8953207628749679",
+          "name": "Item 1",
+          "price": 318.05,
+          "qty": 1,
+          "total": 318.05
+        },
+        {
+          "id": "item-1784341965785-0.35827753966991727",
+          "name": "Item 2",
+          "price": 522.87,
+          "qty": 1,
+          "total": 522.87
+        },
+        {
+          "id": "item-1784341978408-0.2577233639538854",
+          "name": "Item 3",
+          "price": 33.08,
+          "qty": 1,
+          "total": 33.08
+        }
+      ],
+      "subtotal": 874.0000000000001,
+      "discount": 0,
+      "grandTotal": 874.0000000000001,
+      "paymentMode": "UPI",
+      "cashTendered": 874.0000000000001,
+      "changeReturned": 0,
+      "upiRefNo": "UPI/663266006148",
+      "cardRefNo": "",
+      "workerName": "Cashier Counter 1",
+      "status": "CANCELLED"
+    },
+    {
+      "billNo": "BILL-20260718-0016",
+      "timestamp": "2026-07-18T02:25:28.486Z",
+      "customerName": "",
+      "customerPhone": "",
+      "items": [
+        {
+          "id": "item-1784341406321-0.7636283928568541",
+          "name": "Item 1",
+          "price": 5223,
+          "qty": 1,
+          "total": 5223
+        },
+        {
+          "id": "item-1784341414103-0.5900262611571949",
+          "name": "Item 2",
+          "price": 500,
+          "qty": 1,
+          "total": 500
+        }
+      ],
+      "subtotal": 5723,
+      "discount": 400,
+      "grandTotal": 5323,
+      "paymentMode": "UPI",
+      "cashTendered": 5323,
+      "changeReturned": 0,
+      "upiRefNo": "UPI/976891196243",
+      "cardRefNo": "",
+      "workerName": "Cashier Counter 1",
+      "status": "CANCELLED"
+    },
+    {
+      "billNo": "BILL-20260718-0007",
+      "timestamp": "2026-07-18T02:17:48.089Z",
+      "customerName": "",
+      "customerPhone": "",
+      "items": [
+        {
+          "id": "item-1784340979875-0.34733415877519835",
+          "name": "Item 1",
+          "price": 500,
+          "qty": 1,
+          "total": 500
+        },
+        {
+          "id": "item-1784340996575-0.8313717253369027",
+          "name": "Item 2",
+          "price": 1000,
+          "qty": 1,
+          "total": 1000
+        },
+        {
+          "id": "item-1784341013979-0.9048524326234285",
+          "name": "Item 3",
+          "price": 200,
+          "qty": 1,
+          "total": 200
+        }
+      ],
+      "subtotal": 1700,
+      "discount": 0,
+      "grandTotal": 1700,
+      "paymentMode": "UPI",
+      "cashTendered": 1700,
+      "changeReturned": 0,
+      "upiRefNo": "UPI/126852411725",
+      "cardRefNo": "",
+      "workerName": "Cashier Counter 1",
+      "status": "CANCELLED"
+    }
+  ],
+  "store_settings": {
+    "storeName": "ROYAL FASHION MALL",
+    "tagline": "Premier Clothing & Apparel Store",
+    "address": "Grand Central Mall, Ground Floor, Main Road",
+    "city": "New Delhi, 110001",
+    "phone": "+91 98765 43210",
+    "gstin": "07AAACR1234F1Z5",
+    "upiId": "7061060523@upi",
+    "upiName": "Royal Fashion Mall",
+    "billPrefix": "BILL-",
+    "receiptPaper": "80mm",
+    "workerName": "Cashier Counter 1",
+    "customQrImage": ""
+  },
+  "bill_counter": {
+    "20260718": 55
+  }
+}

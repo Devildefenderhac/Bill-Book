@@ -26,44 +26,36 @@ export default function LoginScreen({ onLogin, workers = [] }) {
     const cleanUser = username.trim().toLowerCase();
     const cleanPass = password.trim();
 
-    const isLocalhost =
-      typeof window !== "undefined" &&
-      (window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1" ||
-        window.location.hostname === "");
+    // 1. Authenticate against live backend API (Localhost or Cloud Render)
+    try {
+      const res = await loginWorker(username, password);
+      if (res && res.success && res.worker) {
+        setIsLoading(false);
+        const workerRole = res.worker.role || "Cashier";
+        const isMasterAdminRole = workerRole === "master_admin" || res.worker.id === "master-admin-01";
+        const isAdminRole =
+          workerRole === "Admin" ||
+          workerRole === "admin" ||
+          workerRole === "Owner" ||
+          workerRole === "owner";
 
-    // 1. Authenticate against backend API if running locally with backend
-    if (isLocalhost) {
-      try {
-        const res = await loginWorker(username, password);
-        if (res && res.success && res.worker) {
-          setIsLoading(false);
-          const workerRole = res.worker.role || "Cashier";
-          const isMasterAdminRole = workerRole === "master_admin" || res.worker.id === "master-admin-01";
-          const isAdminRole =
-            workerRole === "Admin" ||
-            workerRole === "admin" ||
-            workerRole === "Owner" ||
-            workerRole === "owner";
-
-          onLogin({
-            role: isMasterAdminRole ? "master_admin" : isAdminRole ? "admin" : "cashier",
-            name: res.worker.name,
-            counter: res.worker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin 1" : "1"),
-            username: res.worker.username || cleanUser,
-            id: res.worker.id,
-            canCancelBills: res.worker.canCancelBills,
-            canAccessMarketing: res.worker.canAccessMarketing,
-          });
-          return;
-        } else if (res && !res.success && res.message) {
-          setIsLoading(false);
-          setErrorMsg(res.message);
-          return;
-        }
-      } catch (err) {
-        console.warn("Backend API unavailable, using offline fallback", err);
+        onLogin({
+          role: isMasterAdminRole ? "master_admin" : isAdminRole ? "admin" : "cashier",
+          name: res.worker.name,
+          counter: res.worker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin 1" : "1"),
+          username: res.worker.username || cleanUser,
+          id: res.worker.id,
+          canCancelBills: res.worker.canCancelBills,
+          canAccessMarketing: res.worker.canAccessMarketing,
+        });
+        return;
+      } else if (res && !res.success && res.message) {
+        setIsLoading(false);
+        setErrorMsg(res.message);
+        return;
       }
+    } catch (err) {
+      console.warn("Backend API unavailable, using offline fallback", err);
     }
 
     // 2. Client-side / Offline / GitHub Pages authentication

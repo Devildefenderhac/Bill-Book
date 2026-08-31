@@ -2,13 +2,8 @@
 // Both Localhost and GitHub Pages share this single live Cloud Database on Render
 const API_BASE = "https://billbook-api-vxph.onrender.com/api";
 
-// Local hardware port controller for USB physical printer
-const isLocalhost =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1" ||
-    window.location.hostname === "");
-const PRINTER_API_BASE = isLocalhost ? "http://127.0.0.1:5000/api" : API_BASE;
+// Local hardware port controller for USB physical printer (always on cashier PC)
+const PRINTER_API_BASE = "http://127.0.0.1:5000/api";
 
 const POS_API_KEY = "BB_POS_SECURE_API_KEY_7061";
 

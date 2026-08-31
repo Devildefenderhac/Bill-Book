@@ -29,6 +29,10 @@ import {
   disconnectThermalPrinter,
   printToThermalPrinter,
   testThermalPrinter,
+  checkApiHealth,
+  syncOfflineTransactions,
+  enqueueOfflineTransaction,
+  getOfflineQueueCount,
 } from "./utils/api";
 import { INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS, INITIAL_WORKERS } from "./data/initialData";
 import { secureLocalStorage, decryptEncryptedObject } from "./utils/storageCrypto";
@@ -76,6 +80,14 @@ export default function App() {
   const [billToPrint, setBillToPrint] = useState(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+
+  // Live Cloud Synchronization status
+  const [syncState, setSyncState] = useState({
+    status: "synced", // "synced" | "syncing" | "offline"
+    lastSynced: null,
+    queueCount: 0,
+  });
+  const isSyncingRef = React.useRef(false);
 
   // Physical Thermal Printer state
   const [printerStatus, setPrinterStatus] = useState({ connected: false, printerName: "" });
@@ -129,26 +141,53 @@ export default function App() {
     }, 300);
   };
 
-  // Load live data from Node.js SQLite backend
-  const loadLiveData = async () => {
-    const apiProducts = await fetchProducts();
-    if (apiProducts) setProducts(apiProducts);
+  // Load live data from Node.js SQLite backend with seamless background polling support
+  const loadLiveData = async (isSilent = false) => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
 
-    const apiNextBill = await fetchNextBillNumber();
-    if (apiNextBill) setCurrentBillNo(apiNextBill);
+    if (!isSilent) {
+      setSyncState((prev) => ({ ...prev, status: "syncing" }));
+    }
 
-    const apiTx = await fetchTransactions();
-    if (apiTx) setTransactions(apiTx);
+    try {
+      // 1. Flush offline queue if items exist
+      await syncOfflineTransactions();
 
-    const apiSet = await fetchSettings();
-    if (apiSet && Object.keys(apiSet).length > 0) setSettings(apiSet);
+      // 2. Fetch fresh live data in parallel
+      const [apiProducts, apiNextBill, apiTx, apiSet, apiWorkers] = await Promise.all([
+        fetchProducts(),
+        fetchNextBillNumber(),
+        fetchTransactions(),
+        fetchSettings(),
+        fetchWorkers(),
+      ]);
 
-    const apiWorkers = await fetchWorkers();
-    if (apiWorkers) setWorkers(apiWorkers);
+      const isBackendLive = apiTx !== null || apiProducts !== null;
 
-    checkPrinterStatus();
+      if (apiProducts) setProducts(apiProducts);
+      if (apiNextBill) setCurrentBillNo(apiNextBill);
+      if (apiTx) setTransactions(apiTx);
+      if (apiSet && Object.keys(apiSet).length > 0) setSettings(apiSet);
+      if (apiWorkers) setWorkers(apiWorkers);
+
+      checkPrinterStatus();
+
+      const queueCount = getOfflineQueueCount();
+      setSyncState({
+        status: isBackendLive ? "synced" : "offline",
+        lastSynced: new Date(),
+        queueCount,
+      });
+    } catch (e) {
+      console.warn("Sync error:", e);
+      setSyncState((prev) => ({ ...prev, status: "offline" }));
+    } finally {
+      isSyncingRef.current = false;
+    }
   };
 
+  // Initial decrypt on mount
   useEffect(() => {
     (async () => {
       try {
@@ -177,7 +216,45 @@ export default function App() {
         console.warn("Decryption on mount error:", e);
       }
     })();
-    loadLiveData();
+  }, []);
+
+  // Continuous background polling (every 6s), tab focus sync, and keep-alive ping
+  useEffect(() => {
+    // 1. Initial live load
+    loadLiveData(false);
+
+    // 2. Real-time background sync loop (every 6 seconds)
+    const pollInterval = setInterval(() => {
+      loadLiveData(true);
+    }, 6000);
+
+    // 3. Keep-alive ping to prevent Render cold start sleep (every 8 minutes)
+    const keepAliveInterval = setInterval(() => {
+      checkApiHealth();
+    }, 8 * 60 * 1000);
+
+    // 4. Instant refresh on window focus / tab visibility / network reconnect
+    const handleFocus = () => loadLiveData(true);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadLiveData(true);
+      }
+    };
+    const handleOnline = () => {
+      loadLiveData(false);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearInterval(keepAliveInterval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
+    };
   }, []);
 
   const handleUpdateSettings = async (newSettings) => {
@@ -292,8 +369,15 @@ export default function App() {
     if (res && res.products) {
       setProducts(res.products);
       if (res.transactions) setTransactions(res.transactions);
+      setSyncState({
+        status: "synced",
+        lastSynced: new Date(),
+        queueCount: getOfflineQueueCount(),
+      });
     } else {
-      // Offline / GitHub Pages local storage fallback
+      // Offline / Render waking up fallback: queue transaction for auto-sync
+      enqueueOfflineTransaction(newTransaction);
+
       const updatedProducts = products.map((p) => {
         const cartItem = (pendingCheckout.cart || []).find((ci) => ci.id === p.id);
         if (cartItem) {
@@ -307,6 +391,12 @@ export default function App() {
       const updatedTxs = [newTransaction, ...transactions];
       setTransactions(updatedTxs);
       secureLocalStorage.setItem("billbook_transactions", updatedTxs);
+
+      setSyncState({
+        status: "offline",
+        lastSynced: new Date(),
+        queueCount: getOfflineQueueCount(),
+      });
     }
 
     setBillToPrint(newTransaction);
@@ -336,7 +426,7 @@ export default function App() {
   const handleReprintBill = async (tx) => {
     const res = await incrementPrintCount(tx.id, tx.billNo);
     const updatedTx = res?.tx || { ...tx, printCount: (tx.printCount || 0) + 1 };
-    loadLiveData();
+    loadLiveData(true);
     triggerPrint(updatedTx);
   };
 
@@ -347,7 +437,7 @@ export default function App() {
       secureLocalStorage.setItem("billbook_transactions", updated);
       return updated;
     });
-    loadLiveData();
+    loadLiveData(true);
   };
 
   const handleUncancelBill = async (billNoToUncancel, idToUncancel) => {
@@ -357,26 +447,67 @@ export default function App() {
       secureLocalStorage.setItem("billbook_transactions", updated);
       return updated;
     });
-    loadLiveData();
+    loadLiveData(true);
   };
 
-  const handleReturnBill = async (billNo, returnedItems, refundMode = "CASH", upiRefundRef = "", originalPaymentMode = "") => {
+  const handleReturnBill = async (billNo, returnedItems, refundMode = "CASH", upiRefundRef = "", originalPaymentMode = "", refundTotal = 0) => {
     const workerName = currentUser ? currentUser.name : "Store Owner (Admin)";
-    const res = await returnTransaction(billNo, returnedItems, workerName, refundMode, upiRefundRef, originalPaymentMode);
-    if (res && (res.originalTx || res.returnTx)) {
-      triggerPrint(res.originalTx || res.returnTx);
-    }
+
+    const originalTx = transactions.find((t) => t.billNo === billNo);
+    const totalBilledQty = (originalTx?.items || []).reduce((s, i) => s + (i.qty || 1), 0);
+    const totalReturnedQty = (returnedItems || []).reduce((s, i) => s + (i.returnQty || i.returnedQty || 1), 0);
+    const returnStatus = totalReturnedQty >= totalBilledQty ? "RETURNED" : "PARTIALLY_RETURNED";
+
+    const updatedItems = (originalTx?.items || []).map((item) => {
+      const ret = (returnedItems || []).find((r) => r.id === item.id);
+      return ret ? { ...item, returnedQty: ret.returnQty || ret.returnedQty } : item;
+    });
+
+    const returnDetailsObj = {
+      returnedItems,
+      returnedBy: workerName,
+      refundMode,
+      upiRefundRef,
+      originalPaymentMode,
+      refundAmount: refundTotal,
+      timestamp: new Date().toISOString(),
+    };
+
+    const res = await returnTransaction(billNo, returnedItems, workerName, refundMode, upiRefundRef, originalPaymentMode, refundTotal);
+
+    const returnTxToPrint = res?.originalTx || res?.returnTx || {
+      ...originalTx,
+      status: returnStatus,
+      items: updatedItems,
+      returnDetails: returnDetailsObj,
+      refundAmount: refundTotal,
+      refundMode,
+      upiRefundRef,
+      originalPaymentMode,
+    };
+
+    triggerPrint(returnTxToPrint);
+
     setTransactions((prev) => {
       const updated = prev.map((t) => {
         if (t.billNo === billNo) {
-          return { ...t, status: "RETURNED", returnDetails: returnedItems };
+          return {
+            ...t,
+            status: returnStatus,
+            items: updatedItems,
+            returnDetails: returnDetailsObj,
+            refundAmount: refundTotal,
+            refundMode,
+            upiRefundRef,
+            originalPaymentMode,
+          };
         }
         return t;
       });
       secureLocalStorage.setItem("billbook_transactions", updated);
       return updated;
     });
-    loadLiveData();
+    loadLiveData(true);
   };
 
   const handleSwitchAccount = (user) => {
@@ -416,6 +547,8 @@ export default function App() {
         printerConnected={printerStatus.connected}
         printerName={printerStatus.printerName}
         onTogglePrinter={handleTogglePrinter}
+        syncState={syncState}
+        onManualSync={() => loadLiveData(false)}
       />
 
       <main className="main-content">
@@ -435,6 +568,8 @@ export default function App() {
             onReprintBill={handleReprintBill}
             onOpenHistory={() => setIsHistoryModalOpen(true)}
             onNavigateTab={setActiveTab}
+            syncState={syncState}
+            onManualSync={() => loadLiveData(false)}
           />
         ) : activeTab === "marketing" ? (
           <MarketingStudio
@@ -471,6 +606,8 @@ export default function App() {
             onReturnBill={handleReturnBill}
             onReloadData={loadLiveData}
             onLogout={() => setCurrentUser(null)}
+            syncState={syncState}
+            onManualSync={() => loadLiveData(false)}
           />
         )}
       </main>

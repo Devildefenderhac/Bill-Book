@@ -373,54 +373,58 @@ export default function PendingPaymentsView({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px", height: "100%" }}>
+    <div className="pending-payments-root" style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%", maxWidth: "100%", boxSizing: "border-box", padding: "2px 0" }}>
       {/* Header Banner */}
       <div
         style={{
           background: "linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(239, 68, 68, 0.15))",
           border: "1px solid rgba(245, 158, 11, 0.4)",
-          borderRadius: "16px",
-          padding: "20px 24px",
+          borderRadius: "var(--radius-lg)",
+          padding: "clamp(12px, 2vw, 18px)",
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "16px",
+          flexDirection: "column",
+          gap: "12px",
+          width: "100%",
+          boxSizing: "border-box",
         }}
       >
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <Clock size={24} color="var(--accent-amber)" />
-            <h2 style={{ fontSize: "20px", fontWeight: "800", color: "#fff", margin: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Clock size={22} color="var(--accent-amber)" />
+            <h2 style={{ fontSize: "clamp(15px, 2.5vw, 19px)", fontWeight: "800", color: "#fff", margin: 0 }}>
               Pending Payments (Udhar / Khata Book)
             </h2>
           </div>
-          <div style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px" }}>
+          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
             Monitor and collect pending customer amounts across all staff & counters.
           </div>
         </div>
 
-        {/* Quick KPI Summary Badges */}
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+        {/* Quick KPI Summary Badges - 100% Full Width Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "8px", width: "100%", boxSizing: "border-box" }}>
           {/* TOTAL PENDING DUE */}
           <div
             style={{
-              background: "rgba(15, 23, 42, 0.6)",
+              background: "rgba(15, 23, 42, 0.7)",
               border: "1px solid rgba(239, 68, 68, 0.4)",
-              borderRadius: "12px",
-              padding: "10px 16px",
-              textAlign: "right",
+              borderRadius: "var(--radius-md)",
+              padding: "10px 12px",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
             }}
           >
-            <div style={{ fontSize: "11px", color: "var(--accent-rose)", fontWeight: "700" }}>
+            <div style={{ fontSize: "10.5px", color: "var(--accent-rose)", fontWeight: "700", textTransform: "uppercase" }}>
               TOTAL PENDING DUE
             </div>
             <div
               style={{
-                fontSize: "22px",
+                fontSize: "clamp(16px, 2vw, 20px)",
                 fontWeight: "900",
                 color: "var(--accent-rose)",
                 fontFamily: "var(--font-mono)",
+                marginTop: "2px",
               }}
             >
               ₹{totalPendingAmount.toFixed(2)}
@@ -432,25 +436,29 @@ export default function PendingPaymentsView({
             onClick={() => setViewTab("today_collected")}
             title="Click to view today's collected Udhar history per bill & person"
             style={{
-              background: viewTab === "today_collected" ? "rgba(16, 185, 129, 0.25)" : "rgba(15, 23, 42, 0.6)",
+              background: viewTab === "today_collected" ? "rgba(16, 185, 129, 0.25)" : "rgba(15, 23, 42, 0.7)",
               border: "1px solid rgba(16, 185, 129, 0.4)",
-              borderRadius: "12px",
-              padding: "10px 16px",
-              textAlign: "right",
+              borderRadius: "var(--radius-md)",
+              padding: "10px 12px",
+              textAlign: "center",
               cursor: "pointer",
               transition: "all 0.15s ease",
               boxShadow: viewTab === "today_collected" ? "0 0 10px rgba(16, 185, 129, 0.4)" : "none",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
             }}
           >
-            <div style={{ fontSize: "11px", color: "var(--accent-emerald)", fontWeight: "700" }}>
+            <div style={{ fontSize: "10.5px", color: "var(--accent-emerald)", fontWeight: "700", textTransform: "uppercase" }}>
               TODAY'S UDHAR COLLECTED
             </div>
             <div
               style={{
-                fontSize: "22px",
+                fontSize: "clamp(16px, 2vw, 20px)",
                 fontWeight: "900",
                 color: "var(--accent-emerald)",
                 fontFamily: "var(--font-mono)",
+                marginTop: "2px",
               }}
             >
               ₹{todayTotalCollected.toFixed(2)}
@@ -459,60 +467,67 @@ export default function PendingPaymentsView({
 
           <div
             style={{
-              background: "rgba(15, 23, 42, 0.6)",
+              background: "rgba(15, 23, 42, 0.7)",
               border: "1px solid rgba(245, 158, 11, 0.4)",
-              borderRadius: "12px",
-              padding: "10px 16px",
-              textAlign: "right",
+              borderRadius: "var(--radius-md)",
+              padding: "10px 12px",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
             }}
           >
-            <div style={{ fontSize: "11px", color: "var(--accent-amber)", fontWeight: "700" }}>
+            <div style={{ fontSize: "10.5px", color: "var(--accent-amber)", fontWeight: "700", textTransform: "uppercase" }}>
               CREDIT CUSTOMERS
             </div>
-            <div style={{ fontSize: "22px", fontWeight: "900", color: "#fff" }}>
-              {uniqueCustomers} <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>people</span>
+            <div style={{ fontSize: "clamp(16px, 2vw, 20px)", fontWeight: "900", color: "#fff", marginTop: "2px" }}>
+              {uniqueCustomers} <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>people</span>
             </div>
           </div>
 
           <div
             style={{
-              background: "rgba(15, 23, 42, 0.6)",
+              background: "rgba(15, 23, 42, 0.7)",
               border: "1px solid var(--border-color)",
-              borderRadius: "12px",
-              padding: "10px 16px",
-              textAlign: "right",
+              borderRadius: "var(--radius-md)",
+              padding: "10px 12px",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
             }}
           >
-            <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: "700" }}>
+            <div style={{ fontSize: "10.5px", color: "var(--text-muted)", fontWeight: "700", textTransform: "uppercase" }}>
               PENDING BILLS
             </div>
-            <div style={{ fontSize: "22px", fontWeight: "900", color: "#fff" }}>
-              {pendingTransactions.length} <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>bills</span>
+            <div style={{ fontSize: "clamp(16px, 2vw, 20px)", fontWeight: "900", color: "#fff", marginTop: "2px" }}>
+              {pendingTransactions.length} <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>bills</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* View Mode Navigation Tabs (Pending Bills vs Today's Udhar Collected) */}
-      <div style={{ display: "flex", gap: "10px", borderBottom: "1px solid var(--border-color)", paddingBottom: "10px" }}>
+      <div className="scrollable-row" style={{ display: "flex", gap: "8px", borderBottom: "1px solid var(--border-color)", paddingBottom: "8px", overflowX: "auto", whiteSpace: "nowrap", width: "100%" }}>
         <button
           type="button"
           onClick={() => setViewTab("pending")}
           style={{
-            padding: "8px 18px",
+            padding: "7px 14px",
             borderRadius: "8px",
-            fontSize: "13px",
+            fontSize: "12.5px",
             fontWeight: "700",
             cursor: "pointer",
             border: "none",
             background: viewTab === "pending" ? "var(--accent-amber)" : "rgba(30, 41, 59, 0.6)",
             color: viewTab === "pending" ? "#000" : "var(--text-muted)",
-            display: "flex",
+            display: "inline-flex",
             alignItems: "center",
-            gap: "8px",
+            gap: "6px",
+            flexShrink: 0,
           }}
         >
-          <Clock size={16} />
+          <Clock size={15} />
           <span>Pending Udhar Bills ({pendingTransactions.length})</span>
         </button>
 
@@ -520,27 +535,28 @@ export default function PendingPaymentsView({
           type="button"
           onClick={() => setViewTab("today_collected")}
           style={{
-            padding: "8px 18px",
+            padding: "7px 14px",
             borderRadius: "8px",
-            fontSize: "13px",
+            fontSize: "12.5px",
             fontWeight: "700",
             cursor: "pointer",
             border: "none",
             background: viewTab === "today_collected" ? "var(--accent-emerald)" : "rgba(30, 41, 59, 0.6)",
             color: viewTab === "today_collected" ? "#fff" : "var(--text-muted)",
-            display: "flex",
+            display: "inline-flex",
             alignItems: "center",
-            gap: "8px",
+            gap: "6px",
+            flexShrink: 0,
           }}
         >
-          <CheckCircle2 size={16} />
-          <span>Today's Collected Udhar ({todaySettlementsList.length} collections: ₹{todayTotalCollected.toFixed(2)})</span>
+          <CheckCircle2 size={15} />
+          <span>Today's Collected Udhar ({todaySettlementsList.length} • ₹{todayTotalCollected.toFixed(2)})</span>
         </button>
       </div>
 
       {/* Account Filter Pills Bar */}
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "700", marginRight: "4px" }}>
+      <div className="scrollable-row" style={{ display: "flex", gap: "6px", alignItems: "center", overflowX: "auto", whiteSpace: "nowrap", width: "100%", paddingBottom: "4px" }}>
+        <span style={{ fontSize: "11.5px", color: "var(--text-muted)", fontWeight: "700", marginRight: "2px", flexShrink: 0 }}>
           Filter By Account:
         </span>
 
@@ -551,16 +567,17 @@ export default function PendingPaymentsView({
           style={{
             padding: "5px 12px",
             borderRadius: "20px",
-            fontSize: "12px",
+            fontSize: "11.5px",
             fontWeight: "700",
             cursor: "pointer",
             border: accountFilter === "all" ? "1.5px solid var(--accent-amber)" : "1px solid var(--border-color)",
             background: accountFilter === "all" ? "rgba(245, 158, 11, 0.25)" : "rgba(30, 41, 59, 0.6)",
             color: accountFilter === "all" ? "var(--accent-amber)" : "var(--text-muted)",
             transition: "all 0.15s ease",
-            display: "flex",
+            display: "inline-flex",
             alignItems: "center",
-            gap: "6px",
+            gap: "5px",
+            flexShrink: 0,
           }}
         >
           <span>All Accounts</span>
@@ -581,16 +598,17 @@ export default function PendingPaymentsView({
               style={{
                 padding: "5px 12px",
                 borderRadius: "20px",
-                fontSize: "12px",
+                fontSize: "11.5px",
                 fontWeight: "700",
                 cursor: "pointer",
                 border: isSelected ? "1.5px solid var(--accent-blue)" : "1px solid var(--border-color)",
                 background: isSelected ? "rgba(59, 130, 246, 0.25)" : "rgba(30, 41, 59, 0.6)",
                 color: isSelected ? "var(--accent-blue)" : "var(--text-muted)",
                 transition: "all 0.15s ease",
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
-                gap: "6px",
+                gap: "5px",
+                flexShrink: 0,
               }}
             >
               <span>{accName}</span>
@@ -602,18 +620,18 @@ export default function PendingPaymentsView({
         })}
       </div>
 
-      {/* Search & Filter Bar */}
-      <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+      {/* Search & Filter Bar - 100% Full Width Responsive */}
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", width: "100%", boxSizing: "border-box" }}>
         {/* Search Input */}
-        <div style={{ position: "relative", flex: 1, minWidth: "260px" }}>
-          <Search size={16} color="var(--text-dim)" style={{ position: "absolute", left: "14px", top: "12px" }} />
+        <div style={{ position: "relative", flex: "1 1 200px", minWidth: "180px", width: "100%" }}>
+          <Search size={15} color="var(--text-dim)" style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }} />
           <input
             type="text"
             className="form-control"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by Customer, Phone, Bill No, Cashier..."
-            style={{ paddingLeft: "40px", fontSize: "13px" }}
+            placeholder="Search customer, phone, bill no..."
+            style={{ paddingLeft: "34px", fontSize: "12.5px", width: "100%", boxSizing: "border-box" }}
           />
         </div>
 
@@ -622,14 +640,16 @@ export default function PendingPaymentsView({
           value={accountFilter}
           onChange={(e) => setAccountFilter(e.target.value)}
           style={{
-            padding: "8px 12px",
+            flex: "1 1 140px",
+            padding: "8px 10px",
             borderRadius: "8px",
             background: "var(--bg-secondary)",
             border: "1px solid var(--border-color)",
             color: "#fff",
-            fontSize: "13px",
+            fontSize: "12.5px",
             outline: "none",
             cursor: "pointer",
+            boxSizing: "border-box",
           }}
         >
           <option value="all">👤 All Accounts (Staff & Admin)</option>
@@ -657,29 +677,31 @@ export default function PendingPaymentsView({
             }
           }}
           style={{
-            padding: "8px 12px",
+            flex: "1 1 140px",
+            padding: "8px 10px",
             borderRadius: "8px",
             background: "var(--bg-secondary)",
             border: "1px solid var(--border-color)",
             color: "#fff",
-            fontSize: "13px",
+            fontSize: "12.5px",
             outline: "none",
             cursor: "pointer",
+            boxSizing: "border-box",
           }}
         >
           <option value="all_time">📅 Lifetime (All Time Udhar)</option>
-          <option value="today">Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="this_week">Weekly (Last 7 Days)</option>
-          <option value="this_month">Monthly (Last 30 Days)</option>
-          <option value="last_6_months">6 Months</option>
-          <option value="this_year">1 Year</option>
-          <option value="custom">Custom Date Range</option>
+          <option value="today">📅 Today</option>
+          <option value="yesterday">📅 Yesterday</option>
+          <option value="this_week">📅 Weekly (Last 7 Days)</option>
+          <option value="this_month">📅 Monthly (Last 30 Days)</option>
+          <option value="last_6_months">📅 6 Months</option>
+          <option value="this_year">📅 1 Year</option>
+          <option value="custom">📅 Custom Date Range</option>
         </select>
 
         {/* Custom Date Range Selector */}
         {timeFilter === "custom" && (
-          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
             <CustomDateInput
               min="2020-01-01"
               value={customStartDate}
@@ -724,7 +746,7 @@ export default function PendingPaymentsView({
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: "4px"
+                gap: "4px",
               }}
             >
               <Search size={14} /> Apply

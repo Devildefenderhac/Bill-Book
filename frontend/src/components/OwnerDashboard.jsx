@@ -32,6 +32,9 @@ import {
   Eye,
   EyeOff,
   Search,
+  RefreshCw,
+  Cloud,
+  CloudOff,
 } from "lucide-react";
 
 const MASTER_ADMIN_ID = window.atob("bWFzdGVyLWFkbWluLTAx");
@@ -56,6 +59,8 @@ export default function OwnerDashboard({
   onDeleteWorker = () => { },
   onSwitchAccount = () => { },
   onLogout = () => { },
+  syncState = { status: "synced", lastSynced: null, queueCount: 0 },
+  onManualSync = () => { },
 }) {
   const [returnModalTransaction, setReturnModalTransaction] = useState(null);
   const [historyModalWorker, setHistoryModalWorker] = useState(null);
@@ -591,6 +596,8 @@ export default function OwnerDashboard({
           alignItems: "center",
           borderBottom: "1px solid var(--border-color)",
           paddingBottom: "12px",
+          flexWrap: "wrap",
+          gap: "12px",
         }}
       >
         <div
@@ -600,7 +607,8 @@ export default function OwnerDashboard({
             gap: "10px",
             overflowX: "auto",
             whiteSpace: "nowrap",
-            paddingBottom: "8px",
+            paddingBottom: "4px",
+            flex: "1 1 auto",
           }}
         >
           {[
@@ -1533,409 +1541,416 @@ export default function OwnerDashboard({
       )}
 
       {subTab === "transactions" && (
-        <div className="table-panel">
-          <div className="panel-title" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
-            <span>Transaction History & Bill Inspector</span>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-              <div style={{ fontWeight: "700", color: "var(--accent-emerald)", fontSize: "14px", marginRight: "10px", background: "rgba(16, 185, 129, 0.1)", padding: "4px 10px", borderRadius: "8px" }}>
-                Total: ₹{txFilteredSales.toFixed(2)} ({filteredTransactions.length} bills)
-              </div>
-              <select
-                value={txTimeFilter}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setTxTimeFilter(val);
-                  if (val === "today" || (val === "custom" && !txCustomStartDate)) {
-                    const todayStr = new Date().toLocaleDateString("en-CA");
-                    setTxCustomStartDate(todayStr);
-                    setTxAppliedCustomStartDate(todayStr);
-                    if (!txCustomEndDate || val === "today") {
-                      setTxCustomEndDate(todayStr);
-                      setTxAppliedCustomEndDate(todayStr);
-                    }
-                  }
-                }}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: "8px",
-                  background: "var(--bg-secondary)",
-                  border: "1px solid var(--border-color)",
-                  color: "#fff",
-                  fontSize: "13px",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="today">Today</option>
-                <option value="yesterday">Yesterday</option>
-                <option value="tomorrow">Tomorrow</option>
-                <option value="this_week">Weekly (Last 7 Days)</option>
-                <option value="this_month">Monthly (Last 30 Days)</option>
-                <option value="last_6_months">6 Months</option>
-                <option value="this_year">1 Year</option>
-                <option value="all_time">Lifetime (All Time)</option>
-                <option value="custom">Custom Date Range</option>
-              </select>
+        <div className="table-panel" style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
+          {/* Header Row */}
+          <div className="panel-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", width: "100%" }}>
+            <span style={{ fontSize: "clamp(15px, 2.5vw, 18px)", fontWeight: "800" }}>Transaction History & Bill Inspector</span>
+            <div style={{ fontWeight: "800", color: "var(--accent-emerald)", fontSize: "clamp(13px, 2vw, 15px)", background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "5px 12px", borderRadius: "8px" }}>
+              Total: ₹{txFilteredSales.toFixed(2)} ({filteredTransactions.length} bills)
+            </div>
+          </div>
 
-              {txTimeFilter === "custom" && (
-                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                  <CustomDateInput
-                    min="2020-01-01"
-                    value={txCustomStartDate}
-                    onChange={(val) => {
-                      setTxCustomStartDate(val);
-                      setTxAppliedCustomStartDate(val);
-                    }}
-                    style={{
-                      padding: "5px 8px",
-                      borderRadius: "6px",
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--border-color)",
-                      color: "#fff",
-                      fontSize: "12px",
-                    }}
-                  />
-                  <span style={{ color: "var(--text-dim)", fontSize: "12px" }}>to</span>
-                  <CustomDateInput
-                    min="2020-01-01"
-                    value={txCustomEndDate}
-                    onChange={(val) => {
-                      setTxCustomEndDate(val);
-                      setTxAppliedCustomEndDate(val);
-                    }}
-                    style={{
-                      padding: "5px 8px",
-                      borderRadius: "6px",
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--border-color)",
-                      color: "#fff",
-                      fontSize: "12px",
-                    }}
-                  />
-                </div>
-              )}
-              <div style={{ width: "260px" }}>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search Bill No, Customer, UPI Ref or Cashier..."
-                  value={searchTx}
-                  onChange={(e) => setSearchTx(e.target.value)}
-                  style={{ padding: "6px 12px", fontSize: "13px" }}
+          {/* Full-Width Responsive Search & Date Filter Bar */}
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", width: "100%", boxSizing: "border-box", margin: "4px 0 8px 0" }}>
+            <div style={{ position: "relative", flex: "1 1 220px", minWidth: "180px", width: "100%" }}>
+              <Search size={15} color="var(--text-dim)" style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }} />
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search Bill No, Customer, UPI Ref or Cashier..."
+                value={searchTx}
+                onChange={(e) => setSearchTx(e.target.value)}
+                style={{ paddingLeft: "34px", fontSize: "12.5px", width: "100%", boxSizing: "border-box" }}
+              />
+            </div>
+
+            <select
+              value={txTimeFilter}
+              onChange={(e) => {
+                const val = e.target.value;
+                setTxTimeFilter(val);
+                if (val === "today" || (val === "custom" && !txCustomStartDate)) {
+                  const todayStr = new Date().toLocaleDateString("en-CA");
+                  setTxCustomStartDate(todayStr);
+                  setTxAppliedCustomStartDate(todayStr);
+                  if (!txCustomEndDate || val === "today") {
+                    setTxCustomEndDate(todayStr);
+                    setTxAppliedCustomEndDate(todayStr);
+                  }
+                }
+              }}
+              style={{
+                flex: "1 1 150px",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                background: "var(--bg-secondary)",
+                border: "1px solid var(--border-color)",
+                color: "#fff",
+                fontSize: "12.5px",
+                outline: "none",
+                cursor: "pointer",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="today">📅 Today</option>
+              <option value="yesterday">📅 Yesterday</option>
+              <option value="tomorrow">📅 Tomorrow</option>
+              <option value="this_week">📅 Weekly (Last 7 Days)</option>
+              <option value="this_month">📅 Monthly (Last 30 Days)</option>
+              <option value="last_6_months">📅 6 Months</option>
+              <option value="this_year">📅 1 Year</option>
+              <option value="all_time">📅 Lifetime (All Time)</option>
+              <option value="custom">📅 Custom Date Range...</option>
+            </select>
+
+            {txTimeFilter === "custom" && (
+              <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                <CustomDateInput
+                  min="2020-01-01"
+                  value={txCustomStartDate}
+                  onChange={(val) => {
+                    setTxCustomStartDate(val);
+                    setTxAppliedCustomStartDate(val);
+                  }}
+                  style={{
+                    padding: "6px 8px",
+                    borderRadius: "6px",
+                    background: "var(--bg-secondary)",
+                    border: "1px solid var(--border-color)",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+                <span style={{ color: "var(--text-dim)", fontSize: "12px" }}>to</span>
+                <CustomDateInput
+                  min="2020-01-01"
+                  value={txCustomEndDate}
+                  onChange={(val) => {
+                    setTxCustomEndDate(val);
+                    setTxAppliedCustomEndDate(val);
+                  }}
+                  style={{
+                    padding: "6px 8px",
+                    borderRadius: "6px",
+                    background: "var(--bg-secondary)",
+                    border: "1px solid var(--border-color)",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
                 />
               </div>
-            </div>
+            )}
           </div>
 
           <div className="table-responsive">
             <table className="custom-table">
-            <thead>
-              <tr>
-                <th>Bill No</th>
-                <th>Date & Time</th>
-                <th>Customer</th>
-                <th>Items</th>
-                <th>Billed By</th>
-                <th>Payment</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransactions.map((tx, idx) => (
-                <tr key={tx.id || tx.billNo + tx.timestamp + idx}>
-                  <td style={{ fontFamily: "var(--font-mono)", fontWeight: "bold" }}>
-                    {tx.billNo}
-                  </td>
-                  <td style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                    {new Date(tx.timestamp).toLocaleString("en-GB")}
-                  </td>
-                  <td>
-                    {tx.customerName || "Walk-in"}
-                    {tx.customerPhone && (
+              <thead>
+                <tr>
+                  <th>Bill No</th>
+                  <th>Date & Time</th>
+                  <th>Customer</th>
+                  <th>Items</th>
+                  <th>Billed By</th>
+                  <th>Payment</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTransactions.map((tx, idx) => (
+                  <tr key={tx.id || tx.billNo + tx.timestamp + idx}>
+                    <td style={{ fontFamily: "var(--font-mono)", fontWeight: "bold" }}>
+                      {tx.billNo}
+                    </td>
+                    <td style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                      {new Date(tx.timestamp).toLocaleString("en-GB")}
+                    </td>
+                    <td>
+                      {tx.customerName || "Walk-in"}
+                      {tx.customerPhone && (
+                        <div style={{ fontSize: "11px", color: "var(--text-dim)" }}>
+                          {tx.customerPhone}
+                        </div>
+                      )}
+                    </td>
+                    {/* Items Column */}
+                    <td>
+                      <div style={{ fontSize: "12px", color: "#fff", fontWeight: "600" }}>
+                        {tx.items ? `${tx.items.length} item${tx.items.length > 1 ? "s" : ""}` : "0 items"}
+                      </div>
                       <div style={{ fontSize: "11px", color: "var(--text-dim)" }}>
-                        {tx.customerPhone}
+                        {(tx.items || []).reduce((s, i) => s + (i.qty || 0), 0)} pcs
                       </div>
-                    )}
-                  </td>
-                  {/* Items Column */}
-                  <td>
-                    <div style={{ fontSize: "12px", color: "#fff", fontWeight: "600" }}>
-                      {tx.items ? `${tx.items.length} item${tx.items.length > 1 ? "s" : ""}` : "0 items"}
-                    </div>
-                    <div style={{ fontSize: "11px", color: "var(--text-dim)" }}>
-                      {(tx.items || []).reduce((s, i) => s + (i.qty || 0), 0)} pcs
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Billed By Column */}
-                  <td>
-                    <div style={{ fontSize: "12px", color: "#fff", fontWeight: "600" }}>
-                      {tx.workerName || "Store Owner"}
-                    </div>
-                    {tx.settledHistory && tx.settledHistory.length > 0 && (
-                      <div style={{ fontSize: "10px", color: "var(--accent-emerald)", marginTop: "2px" }}>
-                        +{tx.settledHistory.length} settlement{tx.settledHistory.length > 1 ? "s" : ""}
+                    {/* Billed By Column */}
+                    <td>
+                      <div style={{ fontSize: "12px", color: "#fff", fontWeight: "600" }}>
+                        {tx.workerName || "Store Owner"}
                       </div>
-                    )}
-                  </td>
-
-                  {/* Payment Column */}
-                  <td>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          width: "fit-content",
-                          padding: "2px 8px",
-                          borderRadius: "4px",
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          background:
-                            tx.paymentMode === "UPI"
-                              ? "rgba(59, 130, 246, 0.15)"
-                              : tx.paymentMode === "CARD"
-                                ? "rgba(168,85,247,0.15)"
-                                : tx.paymentMode === "PENDING" || tx.paymentStatus === "PENDING"
-                                  ? "rgba(244,63,94,0.15)"
-                                  : "rgba(245, 158, 11, 0.15)",
-                          color:
-                            tx.paymentMode === "UPI"
-                              ? "var(--accent-blue)"
-                              : tx.paymentMode === "CARD"
-                                ? "#c084fc"
-                                : tx.paymentMode === "PENDING" || tx.paymentStatus === "PENDING"
-                                  ? "var(--accent-rose)"
-                                  : "var(--accent-amber)",
-                        }}
-                      >
-                        {tx.paymentMode === "PENDING" || tx.paymentStatus === "PENDING" ? "UDHAR" : tx.paymentMode || "CASH"}
-                      </span>
-
-                      {/* Payment Proofs */}
-                      {tx.paymentMode === "UPI" && tx.upiRefNo && (
-                        <div style={{ fontSize: "10px", color: "var(--accent-blue)", fontFamily: "var(--font-mono)", fontWeight: "600" }}>
-                          Ref: {tx.upiRefNo}
+                      {tx.settledHistory && tx.settledHistory.length > 0 && (
+                        <div style={{ fontSize: "10px", color: "var(--accent-emerald)", marginTop: "2px" }}>
+                          +{tx.settledHistory.length} settlement{tx.settledHistory.length > 1 ? "s" : ""}
                         </div>
                       )}
-                      {tx.paymentMode === "CARD" && tx.cardRefNo && (
-                        <div style={{ fontSize: "10px", color: "#c084fc", fontFamily: "var(--font-mono)", fontWeight: "600" }}>
-                          Ref: {tx.cardRefNo}
-                        </div>
-                      )}
-                      {tx.paymentMode === "CASH" && tx.cashTendered > 0 && (
-                        <div style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>
-                          Paid: ₹{tx.cashTendered}
-                        </div>
-                      )}
-                      {(tx.paymentMode === "PENDING" || tx.pendingAmount !== undefined) && tx.pendingAmount > 0 && (
-                        <div style={{ fontSize: "10px", color: "var(--accent-rose)", fontFamily: "var(--font-mono)", fontWeight: "600" }}>
-                          Due: ₹{tx.pendingAmount.toFixed(2)}
-                        </div>
-                      )}
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Amount Column */}
-                  <td>
-                    {tx.status === "RETURNED" || tx.type === "RETURN" ? (
-                      <div>
-                        <div style={{ fontWeight: "700", color: "var(--accent-rose)" }}>
-                          -₹{(tx.refundAmount || Math.abs(tx.grandTotal)).toFixed(2)}
-                        </div>
-                        <div style={{ fontSize: "10px", color: "var(--accent-rose)", fontWeight: "600" }}>Total Refund</div>
+                    {/* Payment Column */}
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            width: "fit-content",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            background:
+                              tx.paymentMode === "UPI"
+                                ? "rgba(59, 130, 246, 0.15)"
+                                : tx.paymentMode === "CARD"
+                                  ? "rgba(168,85,247,0.15)"
+                                  : tx.paymentMode === "PENDING" || tx.paymentStatus === "PENDING"
+                                    ? "rgba(244,63,94,0.15)"
+                                    : "rgba(245, 158, 11, 0.15)",
+                            color:
+                              tx.paymentMode === "UPI"
+                                ? "var(--accent-blue)"
+                                : tx.paymentMode === "CARD"
+                                  ? "#c084fc"
+                                  : tx.paymentMode === "PENDING" || tx.paymentStatus === "PENDING"
+                                    ? "var(--accent-rose)"
+                                    : "var(--accent-amber)",
+                          }}
+                        >
+                          {tx.paymentMode === "PENDING" || tx.paymentStatus === "PENDING" ? "UDHAR" : tx.paymentMode || "CASH"}
+                        </span>
+
+                        {/* Payment Proofs */}
+                        {tx.paymentMode === "UPI" && tx.upiRefNo && (
+                          <div style={{ fontSize: "10px", color: "var(--accent-blue)", fontFamily: "var(--font-mono)", fontWeight: "600" }}>
+                            Ref: {tx.upiRefNo}
+                          </div>
+                        )}
+                        {tx.paymentMode === "CARD" && tx.cardRefNo && (
+                          <div style={{ fontSize: "10px", color: "#c084fc", fontFamily: "var(--font-mono)", fontWeight: "600" }}>
+                            Ref: {tx.cardRefNo}
+                          </div>
+                        )}
+                        {tx.paymentMode === "CASH" && tx.cashTendered > 0 && (
+                          <div style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>
+                            Paid: ₹{tx.cashTendered}
+                          </div>
+                        )}
+                        {(tx.paymentMode === "PENDING" || tx.pendingAmount !== undefined) && tx.pendingAmount > 0 && (
+                          <div style={{ fontSize: "10px", color: "var(--accent-rose)", fontFamily: "var(--font-mono)", fontWeight: "600" }}>
+                            Due: ₹{tx.pendingAmount.toFixed(2)}
+                          </div>
+                        )}
                       </div>
-                    ) : tx.status === "PARTIALLY_RETURNED" ? (
-                      <div>
-                        <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
-                          Net: ₹{(tx.grandTotal || 0).toFixed(2)}
+                    </td>
+
+                    {/* Amount Column */}
+                    <td>
+                      {tx.status === "RETURNED" || tx.type === "RETURN" ? (
+                        <div>
+                          <div style={{ fontWeight: "700", color: "var(--accent-rose)" }}>
+                            -₹{(tx.refundAmount || Math.abs(tx.grandTotal)).toFixed(2)}
+                          </div>
+                          <div style={{ fontSize: "10px", color: "var(--accent-rose)", fontWeight: "600" }}>Total Refund</div>
                         </div>
-                        <div style={{ fontSize: "10px", color: "var(--accent-amber)", fontWeight: "600" }}>
-                          Refunded: ₹{(tx.refundAmount || (tx.items || []).reduce((s, i) => s + ((i.returnedQty || 0) * (i.price || 0)), 0)).toFixed(2)}
+                      ) : tx.status === "PARTIALLY_RETURNED" ? (
+                        <div>
+                          <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
+                            Net: ₹{(tx.grandTotal || 0).toFixed(2)}
+                          </div>
+                          <div style={{ fontSize: "10px", color: "var(--accent-amber)", fontWeight: "600" }}>
+                            Refunded: ₹{(tx.refundAmount || (tx.items || []).reduce((s, i) => s + ((i.returnedQty || 0) * (i.price || 0)), 0)).toFixed(2)}
+                          </div>
                         </div>
-                      </div>
-                    ) : (tx.paymentStatus === "PENDING" || tx.paymentStatus === "PARTIALLY_PAID" || tx.paymentMode === "PENDING" || (tx.pendingAmount !== undefined && tx.pendingAmount > 0)) ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                      ) : (tx.paymentStatus === "PENDING" || tx.paymentStatus === "PARTIALLY_PAID" || tx.paymentMode === "PENDING" || (tx.pendingAmount !== undefined && tx.pendingAmount > 0)) ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                          <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
+                            ₹{(tx.grandTotal || 0).toFixed(2)}
+                          </div>
+                          {(tx.advanceAmount || 0) > 0 && (
+                            <div style={{ fontSize: "10px", color: "var(--accent-emerald)", fontWeight: "600" }}>
+                              Advance: ₹{tx.advanceAmount.toFixed(2)}
+                            </div>
+                          )}
+                          <div style={{
+                            fontSize: "11px", fontWeight: "800",
+                            color: "var(--accent-rose)",
+                            background: "rgba(239,68,68,0.12)",
+                            borderRadius: "4px", padding: "1px 5px",
+                            display: "inline-block"
+                          }}>
+                            Due: ₹{(tx.pendingAmount !== undefined ? tx.pendingAmount : tx.grandTotal).toFixed(2)}
+                          </div>
+                          {tx.settledHistory && tx.settledHistory.length > 0 && (
+                            <div style={{ fontSize: "9px", color: "var(--text-muted)", marginTop: "2px" }}>
+                              {tx.settledHistory.map((e, i) => (
+                                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "6px" }}>
+                                  <span>{e.settledBy}:</span>
+                                  <span style={{ color: "var(--accent-emerald)", fontWeight: "700" }}>+₹{(e.amount || 0).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
                         <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
                           ₹{(tx.grandTotal || 0).toFixed(2)}
                         </div>
-                        {(tx.advanceAmount || 0) > 0 && (
-                          <div style={{ fontSize: "10px", color: "var(--accent-emerald)", fontWeight: "600" }}>
-                            Advance: ₹{tx.advanceAmount.toFixed(2)}
-                          </div>
-                        )}
-                        <div style={{
-                          fontSize: "11px", fontWeight: "800",
-                          color: "var(--accent-rose)",
-                          background: "rgba(239,68,68,0.12)",
-                          borderRadius: "4px", padding: "1px 5px",
-                          display: "inline-block"
-                        }}>
-                          Due: ₹{(tx.pendingAmount !== undefined ? tx.pendingAmount : tx.grandTotal).toFixed(2)}
-                        </div>
-                        {tx.settledHistory && tx.settledHistory.length > 0 && (
-                          <div style={{ fontSize: "9px", color: "var(--text-muted)", marginTop: "2px" }}>
-                            {tx.settledHistory.map((e, i) => (
-                              <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "6px" }}>
-                                <span>{e.settledBy}:</span>
-                                <span style={{ color: "var(--accent-emerald)", fontWeight: "700" }}>+₹{(e.amount || 0).toFixed(2)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
-                        ₹{(tx.grandTotal || 0).toFixed(2)}
-                      </div>
-                    )}
-                  </td>
+                      )}
+                    </td>
 
-                  {/* Status Column */}
-                  <td>
-                    {(() => {
-                      const isCancelled = tx.status === "CANCELLED";
-                      const isReturned = tx.status === "RETURNED" || tx.type === "RETURN";
-                      const isPartiallyReturned = tx.status === "PARTIALLY_RETURNED";
-                      const isPending = tx.paymentMode === "PENDING" || tx.paymentStatus === "PENDING" || (tx.pendingAmount !== undefined && tx.pendingAmount >= (tx.grandTotal || 0));
-                      const isPartiallyPaid = tx.paymentStatus === "PARTIALLY_PAID" || (tx.pendingAmount !== undefined && tx.pendingAmount > 0 && tx.pendingAmount < (tx.grandTotal || 0));
+                    {/* Status Column */}
+                    <td>
+                      {(() => {
+                        const isCancelled = tx.status === "CANCELLED";
+                        const isReturned = tx.status === "RETURNED" || tx.type === "RETURN";
+                        const isPartiallyReturned = tx.status === "PARTIALLY_RETURNED";
+                        const isPending = tx.paymentMode === "PENDING" || tx.paymentStatus === "PENDING" || (tx.pendingAmount !== undefined && tx.pendingAmount >= (tx.grandTotal || 0));
+                        const isPartiallyPaid = tx.paymentStatus === "PARTIALLY_PAID" || (tx.pendingAmount !== undefined && tx.pendingAmount > 0 && tx.pendingAmount < (tx.grandTotal || 0));
 
-                      let label = tx.status || "COMPLETED";
-                      let bg = "rgba(16,185,129,0.15)";
-                      let color = "var(--accent-emerald)";
+                        let label = tx.status || "COMPLETED";
+                        let bg = "rgba(16,185,129,0.15)";
+                        let color = "var(--accent-emerald)";
 
-                      if (isCancelled) {
-                        label = "CANCELLED";
-                        bg = "rgba(244, 63, 94, 0.15)";
-                        color = "var(--accent-rose)";
-                      } else if (isReturned) {
-                        label = "RETURNED";
-                        bg = "rgba(244, 63, 94, 0.15)";
-                        color = "var(--accent-rose)";
-                      } else if (isPartiallyReturned) {
-                        label = "PARTIALLY RETURNED";
-                        bg = "rgba(245, 158, 11, 0.15)";
-                        color = "var(--accent-amber)";
-                      } else if (isPending) {
-                        label = "PENDING UDHAR";
-                        bg = "rgba(245, 158, 11, 0.15)";
-                        color = "var(--accent-amber)";
-                      } else if (isPartiallyPaid) {
-                        label = "PARTIALLY PAID";
-                        bg = "rgba(245, 158, 11, 0.15)";
-                        color = "var(--accent-amber)";
-                      }
+                        if (isCancelled) {
+                          label = "CANCELLED";
+                          bg = "rgba(244, 63, 94, 0.15)";
+                          color = "var(--accent-rose)";
+                        } else if (isReturned) {
+                          label = "RETURNED";
+                          bg = "rgba(244, 63, 94, 0.15)";
+                          color = "var(--accent-rose)";
+                        } else if (isPartiallyReturned) {
+                          label = "PARTIALLY RETURNED";
+                          bg = "rgba(245, 158, 11, 0.15)";
+                          color = "var(--accent-amber)";
+                        } else if (isPending) {
+                          label = "PENDING UDHAR";
+                          bg = "rgba(245, 158, 11, 0.15)";
+                          color = "var(--accent-amber)";
+                        } else if (isPartiallyPaid) {
+                          label = "PARTIALLY PAID";
+                          bg = "rgba(245, 158, 11, 0.15)";
+                          color = "var(--accent-amber)";
+                        }
 
-                      return (
-                        <span
-                          style={{
-                            padding: "4px 8px",
-                            borderRadius: "12px",
-                            fontSize: "11px",
-                            fontWeight: "700",
-                            background: bg,
-                            color: color,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {label}
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      {tx.status === "CANCELLED" ? (
-                        <button
-                          onClick={() => onUncancelBill(tx.billNo, tx.id)}
-                          style={{
-                            padding: "4px 10px",
-                            borderRadius: "4px",
-                            background: "rgba(16, 185, 129, 0.15)",
-                            border: "1px solid rgba(16, 185, 129, 0.4)",
-                            color: "var(--accent-emerald)",
-                            fontSize: "11px",
-                            fontWeight: "600",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Uncancel
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => setViewBillTransaction(tx)}
+                        return (
+                          <span
                             style={{
                               padding: "4px 8px",
-                              borderRadius: "4px",
-                              background: "rgba(56, 189, 248, 0.1)",
-                              border: "1px solid rgba(56, 189, 248, 0.3)",
-                              color: "#38bdf8",
+                              borderRadius: "12px",
                               fontSize: "11px",
-                              display: "flex",
-                              alignItems: "center",
-                              cursor: "pointer",
+                              fontWeight: "700",
+                              background: bg,
+                              color: color,
+                              whiteSpace: "nowrap",
                             }}
                           >
-                            <Eye size={12} />
-                            View
-                          </button>
+                            {label}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        {tx.status === "CANCELLED" ? (
                           <button
-                            onClick={() => onReprintBill(tx)}
-                            style={{
-                              padding: "4px 8px",
-                              borderRadius: "4px",
-                              background: "var(--bg-primary)",
-                              border: "1px solid var(--border-color)",
-                              color: "var(--text-main)",
-                              fontSize: "11px",
-                              display: "flex",
-                              alignItems: "center",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <Printer size={12} />
-                            Reprint
-                          </button>
-                          <button
-                            onClick={() => onCancelBill(tx.billNo, tx.id)}
+                            onClick={() => onUncancelBill(tx.billNo, tx.id)}
                             style={{
                               padding: "4px 10px",
                               borderRadius: "4px",
-                              background: "rgba(244, 63, 94, 0.1)",
-                              border: "1px solid rgba(244, 63, 94, 0.3)",
-                              color: "var(--accent-rose)",
+                              background: "rgba(16, 185, 129, 0.15)",
+                              border: "1px solid rgba(16, 185, 129, 0.4)",
+                              color: "var(--accent-emerald)",
                               fontSize: "11px",
+                              fontWeight: "600",
                               cursor: "pointer",
                             }}
                           >
-                            Cancel
+                            Uncancel
                           </button>
-                          {tx.type !== 'RETURN' && (
+                        ) : (
+                          <>
                             <button
-                              onClick={() => setReturnModalTransaction(tx)}
+                              onClick={() => setViewBillTransaction(tx)}
+                              style={{
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                background: "rgba(56, 189, 248, 0.1)",
+                                border: "1px solid rgba(56, 189, 248, 0.3)",
+                                color: "#38bdf8",
+                                fontSize: "11px",
+                                display: "flex",
+                                alignItems: "center",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Eye size={12} />
+                              View
+                            </button>
+                            <button
+                              onClick={() => onReprintBill(tx)}
+                              style={{
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                background: "var(--bg-primary)",
+                                border: "1px solid var(--border-color)",
+                                color: "var(--text-main)",
+                                fontSize: "11px",
+                                display: "flex",
+                                alignItems: "center",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Printer size={12} />
+                              Reprint
+                            </button>
+                            <button
+                              onClick={() => onCancelBill(tx.billNo, tx.id)}
                               style={{
                                 padding: "4px 10px",
                                 borderRadius: "4px",
-                                background: "rgba(234, 179, 8, 0.1)",
-                                border: "1px solid rgba(234, 179, 8, 0.3)",
-                                color: "var(--accent-amber)",
+                                background: "rgba(244, 63, 94, 0.1)",
+                                border: "1px solid rgba(244, 63, 94, 0.3)",
+                                color: "var(--accent-rose)",
                                 fontSize: "11px",
                                 cursor: "pointer",
                               }}
                             >
-                              Return
+                              Cancel
                             </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                            {tx.type !== 'RETURN' && (
+                              <button
+                                onClick={() => setReturnModalTransaction(tx)}
+                                style={{
+                                  padding: "4px 10px",
+                                  borderRadius: "4px",
+                                  background: "rgba(234, 179, 8, 0.1)",
+                                  border: "1px solid rgba(234, 179, 8, 0.3)",
+                                  color: "var(--accent-amber)",
+                                  fontSize: "11px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Return
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -2215,140 +2230,140 @@ export default function OwnerDashboard({
 
             <div className="table-responsive">
               <table className="custom-table" style={{ marginTop: "16px" }}>
-              <thead>
-                <tr>
-                  <th>Admin Name &amp; Role</th>
-                  <th>Counter Label</th>
-                  <th>Contact Phone</th>
-                  <th>Login Username</th>
-                  <th>Password</th>
-                  <th>Bills (Today / Total)</th>
-                  <th>Sales (Today / Total)</th>
-                  <th>Actions &amp; Billing</th>
-                </tr>
-              </thead>
-              <tbody>
-                {adminAccounts.map((admin, idx) => {
-                  const todayStr = new Date().toISOString().split("T")[0];
-                  const adminTx = transactions.filter(
-                    (t) =>
-                      t.status !== "CANCELLED" &&
-                      (t.workerName === admin.name ||
-                        (idx === 0 && (!t.workerName || t.workerName === "Store Owner" || t.workerName === "Store Owner (Admin)" || t.workerName === "admin")))
-                  );
-                  const adminDailyTx = adminTx.filter(
-                    (t) => t.timestamp && t.timestamp.startsWith(todayStr)
-                  );
-                  const sales = adminTx.reduce((sum, t) => sum + t.grandTotal, 0);
-                  const dailySales = adminDailyTx.reduce((sum, t) => sum + t.grandTotal, 0);
-                  const isMasterRole = admin.role === "master_admin" || admin.id === MASTER_ADMIN_ID;
+                <thead>
+                  <tr>
+                    <th>Admin Name &amp; Role</th>
+                    <th>Counter Label</th>
+                    <th>Contact Phone</th>
+                    <th>Login Username</th>
+                    <th>Password</th>
+                    <th>Bills (Today / Total)</th>
+                    <th>Sales (Today / Total)</th>
+                    <th>Actions &amp; Billing</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminAccounts.map((admin, idx) => {
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    const adminTx = transactions.filter(
+                      (t) =>
+                        t.status !== "CANCELLED" &&
+                        (t.workerName === admin.name ||
+                          (idx === 0 && (!t.workerName || t.workerName === "Store Owner" || t.workerName === "Store Owner (Admin)" || t.workerName === "admin")))
+                    );
+                    const adminDailyTx = adminTx.filter(
+                      (t) => t.timestamp && t.timestamp.startsWith(todayStr)
+                    );
+                    const sales = adminTx.reduce((sum, t) => sum + t.grandTotal, 0);
+                    const dailySales = adminDailyTx.reduce((sum, t) => sum + t.grandTotal, 0);
+                    const isMasterRole = admin.role === "master_admin" || admin.id === MASTER_ADMIN_ID;
 
-                  return (
-                    <tr key={admin.id || `admin-${idx}`} style={{ background: isMasterRole ? "rgba(245, 158, 11, 0.08)" : "rgba(59, 130, 246, 0.04)" }}>
-                      <td>
-                        <div style={{ fontWeight: "800", color: "#fff", display: "flex", alignItems: "center", gap: "6px" }}>
-                          <span
-                            onClick={() => setHistoryModalWorker(admin)}
-                            style={{ cursor: "pointer", textDecoration: "underline", color: isMasterRole ? "var(--accent-amber)" : "var(--accent-blue)" }}
-                            title="Click to view bill history modal for this Admin"
-                          >
-                            {admin.name}
-                          </span>
+                    return (
+                      <tr key={admin.id || `admin-${idx}`} style={{ background: isMasterRole ? "rgba(245, 158, 11, 0.08)" : "rgba(59, 130, 246, 0.04)" }}>
+                        <td>
+                          <div style={{ fontWeight: "800", color: "#fff", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span
+                              onClick={() => setHistoryModalWorker(admin)}
+                              style={{ cursor: "pointer", textDecoration: "underline", color: isMasterRole ? "var(--accent-amber)" : "var(--accent-blue)" }}
+                              title="Click to view bill history modal for this Admin"
+                            >
+                              {admin.name}
+                            </span>
+                            <span style={{
+                              fontSize: "10px", padding: "2px 6px", borderRadius: "10px",
+                              background: isMasterRole ? "var(--accent-amber)" : "rgba(59, 130, 246, 0.2)",
+                              color: isMasterRole ? "#000" : "var(--accent-blue)",
+                              fontWeight: "800"
+                            }}>
+                              {isMasterRole ? "👑 ADMIN MASTER" : "STORE ADMIN"}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                            {isMasterRole ? "Master Owner Account" : "Admin User Account"}
+                          </div>
+                        </td>
+                        <td>
                           <span style={{
-                            fontSize: "10px", padding: "2px 6px", borderRadius: "10px",
-                            background: isMasterRole ? "var(--accent-amber)" : "rgba(59, 130, 246, 0.2)",
-                            color: isMasterRole ? "#000" : "var(--accent-blue)",
-                            fontWeight: "800"
+                            padding: "2px 8px", borderRadius: "12px", fontSize: "11px",
+                            background: isMasterRole ? "rgba(245,158,11,0.15)" : "rgba(59,130,246,0.15)",
+                            color: isMasterRole ? "var(--accent-amber)" : "var(--accent-blue)",
+                            fontWeight: "bold"
                           }}>
-                            {isMasterRole ? "👑 ADMIN MASTER" : "STORE ADMIN"}
+                            {admin.counter || `Admin ${idx + 1}`}
                           </span>
-                        </div>
-                        <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                          {isMasterRole ? "Master Owner Account" : "Admin User Account"}
-                        </div>
-                      </td>
-                      <td>
-                        <span style={{
-                          padding: "2px 8px", borderRadius: "12px", fontSize: "11px",
-                          background: isMasterRole ? "rgba(245,158,11,0.15)" : "rgba(59,130,246,0.15)",
-                          color: isMasterRole ? "var(--accent-amber)" : "var(--accent-blue)",
-                          fontWeight: "bold"
-                        }}>
-                          {admin.counter || `Admin ${idx + 1}`}
-                        </span>
-                      </td>
-                      <td>{admin.phone || "N/A"}</td>
-                      <td style={{ fontFamily: "var(--font-mono)", fontWeight: "bold" }}>{admin.username}</td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px" }}>
-                            {showPasswords[admin.id || "admin"] ? (admin.password || "••••••••") : "••••••••"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setShowPasswords(p => ({ ...p, [admin.id || "admin"]: !p[admin.id || "admin"] }))}
-                            style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "12px" }}
-                            title="Toggle Password View"
-                          >
-                            {showPasswords[admin.id || "admin"] ? "🙈" : "👁️"}
-                          </button>
-                        </div>
-                      </td>
-                      <td
-                        style={{ fontWeight: "600", cursor: "pointer" }}
-                        onClick={() => setHistoryModalWorker(admin)}
-                        title="Click to view bill history modal for this Admin"
-                      >
-                        <div style={{ color: isMasterRole ? "var(--accent-amber)" : "var(--accent-blue)", textDecoration: "underline" }}>{adminDailyTx.length} bills (Today)</div>
-                        <div style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "normal" }}>
-                          {adminTx.length} total
-                        </div>
-                      </td>
-                      <td style={{ fontWeight: "bold", color: "var(--accent-emerald)" }}>
-                        <div>₹{dailySales.toFixed(2)} (Today)</div>
-                        <div style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "normal" }}>
-                          ₹{sales.toFixed(2)} total
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                          <button
-                            onClick={() => {
-                              setEditingWorker(admin);
-                              setWorkerForm({ ...admin, password: admin.password || "", canCancelBills: true, role: admin.role || "Admin" });
-                              setIsWorkerModalOpen(true);
-                            }}
-                            style={{
-                              padding: "4px 10px", borderRadius: "4px",
-                              background: "var(--bg-primary)", border: "1px solid var(--border-color)",
-                              fontSize: "11px", cursor: "pointer"
-                            }}
-                          >
-                            Edit
-                          </button>
-                          {!isMasterRole && (
+                        </td>
+                        <td>{admin.phone || "N/A"}</td>
+                        <td style={{ fontFamily: "var(--font-mono)", fontWeight: "bold" }}>{admin.username}</td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+                              {showPasswords[admin.id || "admin"] ? (admin.password || "••••••••") : "••••••••"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowPasswords(p => ({ ...p, [admin.id || "admin"]: !p[admin.id || "admin"] }))}
+                              style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "12px" }}
+                              title="Toggle Password View"
+                            >
+                              {showPasswords[admin.id || "admin"] ? "🙈" : "👁️"}
+                            </button>
+                          </div>
+                        </td>
+                        <td
+                          style={{ fontWeight: "600", cursor: "pointer" }}
+                          onClick={() => setHistoryModalWorker(admin)}
+                          title="Click to view bill history modal for this Admin"
+                        >
+                          <div style={{ color: isMasterRole ? "var(--accent-amber)" : "var(--accent-blue)", textDecoration: "underline" }}>{adminDailyTx.length} bills (Today)</div>
+                          <div style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "normal" }}>
+                            {adminTx.length} total
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: "bold", color: "var(--accent-emerald)" }}>
+                          <div>₹{dailySales.toFixed(2)} (Today)</div>
+                          <div style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "normal" }}>
+                            ₹{sales.toFixed(2)} total
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                             <button
                               onClick={() => {
-                                if (window.confirm("Are you sure you want to delete this admin account?")) {
-                                  onDeleteWorker(admin.id);
-                                }
+                                setEditingWorker(admin);
+                                setWorkerForm({ ...admin, password: admin.password || "", canCancelBills: true, role: admin.role || "Admin" });
+                                setIsWorkerModalOpen(true);
                               }}
                               style={{
                                 padding: "4px 10px", borderRadius: "4px",
-                                background: "rgba(244, 63, 94, 0.1)", border: "1px solid rgba(244, 63, 94, 0.3)",
-                                color: "var(--accent-rose)", fontSize: "11px", cursor: "pointer"
+                                background: "var(--bg-primary)", border: "1px solid var(--border-color)",
+                                fontSize: "11px", cursor: "pointer"
                               }}
                             >
-                              Remove
+                              Edit
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            {!isMasterRole && (
+                              <button
+                                onClick={() => {
+                                  if (window.confirm("Are you sure you want to delete this admin account?")) {
+                                    onDeleteWorker(admin.id);
+                                  }
+                                }}
+                                style={{
+                                  padding: "4px 10px", borderRadius: "4px",
+                                  background: "rgba(244, 63, 94, 0.1)", border: "1px solid rgba(244, 63, 94, 0.3)",
+                                  color: "var(--accent-rose)", fontSize: "11px", cursor: "pointer"
+                                }}
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -2375,129 +2390,129 @@ export default function OwnerDashboard({
 
           <div className="table-responsive">
             <table className="custom-table" style={{ marginTop: "16px" }}>
-            <thead>
-              <tr>
-                <th>Cashier Name</th>
-                <th>Counter No.</th>
-                <th>Contact Phone</th>
-                <th>Login Username</th>
-                <th>Password</th>
-                <th>Bills (Today / Total)</th>
-                <th>Sales (Today / Total)</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {staffAccounts.map((w) => {
-                const todayStr = new Date().toISOString().split("T")[0];
-                const theirTx = transactions.filter(
-                  (t) => t.status !== "CANCELLED" && t.workerName === w.name
-                );
-                const theirDailyTx = theirTx.filter(
-                  (t) => t.timestamp && t.timestamp.startsWith(todayStr)
-                );
-                const sales = theirTx.reduce((sum, t) => sum + t.grandTotal, 0);
-                const dailySales = theirDailyTx.reduce((sum, t) => sum + t.grandTotal, 0);
+              <thead>
+                <tr>
+                  <th>Cashier Name</th>
+                  <th>Counter No.</th>
+                  <th>Contact Phone</th>
+                  <th>Login Username</th>
+                  <th>Password</th>
+                  <th>Bills (Today / Total)</th>
+                  <th>Sales (Today / Total)</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staffAccounts.map((w) => {
+                  const todayStr = new Date().toISOString().split("T")[0];
+                  const theirTx = transactions.filter(
+                    (t) => t.status !== "CANCELLED" && t.workerName === w.name
+                  );
+                  const theirDailyTx = theirTx.filter(
+                    (t) => t.timestamp && t.timestamp.startsWith(todayStr)
+                  );
+                  const sales = theirTx.reduce((sum, t) => sum + t.grandTotal, 0);
+                  const dailySales = theirDailyTx.reduce((sum, t) => sum + t.grandTotal, 0);
 
-                return (
-                  <tr key={w.id}>
-                    <td>
-                      <div
-                        style={{ fontWeight: "700", color: "var(--accent-blue)", cursor: "pointer", textDecoration: "underline" }}
+                  return (
+                    <tr key={w.id}>
+                      <td>
+                        <div
+                          style={{ fontWeight: "700", color: "var(--accent-blue)", cursor: "pointer", textDecoration: "underline" }}
+                          onClick={() => setHistoryModalWorker(w)}
+                          title="Click to view bill history modal for this Cashier"
+                        >
+                          {w.name}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                          Cashier Staff {w.phone ? `• ${w.phone}` : ""}
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{
+                          padding: "2px 8px", borderRadius: "12px", fontSize: "11px",
+                          background: "rgba(59,130,246,0.1)", color: "var(--accent-blue)", fontWeight: "bold"
+                        }}>
+                          Counter {w.counter}
+                        </span>
+                      </td>
+                      <td>{w.phone || "N/A"}</td>
+                      <td style={{ fontFamily: "var(--font-mono)", fontWeight: "bold" }}>{w.username}</td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+                            {showPasswords[w.id] ? (w.password || "••••••••") : "••••••••"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswords(p => ({ ...p, [w.id]: !p[w.id] }))}
+                            style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "12px" }}
+                            title="Toggle Password View"
+                          >
+                            {showPasswords[w.id] ? "🙈" : "👁️"}
+                          </button>
+                        </div>
+                      </td>
+                      <td
+                        style={{ fontWeight: "600", cursor: "pointer" }}
                         onClick={() => setHistoryModalWorker(w)}
                         title="Click to view bill history modal for this Cashier"
                       >
-                        {w.name}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                        Cashier Staff {w.phone ? `• ${w.phone}` : ""}
-                      </div>
-                    </td>
-                    <td>
-                      <span style={{
-                        padding: "2px 8px", borderRadius: "12px", fontSize: "11px",
-                        background: "rgba(59,130,246,0.1)", color: "var(--accent-blue)", fontWeight: "bold"
-                      }}>
-                        Counter {w.counter}
-                      </span>
-                    </td>
-                    <td>{w.phone || "N/A"}</td>
-                    <td style={{ fontFamily: "var(--font-mono)", fontWeight: "bold" }}>{w.username}</td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px" }}>
-                          {showPasswords[w.id] ? (w.password || "••••••••") : "••••••••"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setShowPasswords(p => ({ ...p, [w.id]: !p[w.id] }))}
-                          style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "12px" }}
-                          title="Toggle Password View"
-                        >
-                          {showPasswords[w.id] ? "🙈" : "👁️"}
-                        </button>
-                      </div>
-                    </td>
-                    <td
-                      style={{ fontWeight: "600", cursor: "pointer" }}
-                      onClick={() => setHistoryModalWorker(w)}
-                      title="Click to view bill history modal for this Cashier"
-                    >
-                      <div style={{ color: "var(--accent-blue)", textDecoration: "underline" }}>{theirDailyTx.length} bills (Today)</div>
-                      <div style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "normal" }}>
-                        {theirTx.length} total
-                      </div>
-                    </td>
-                    <td style={{ fontWeight: "bold", color: "var(--accent-emerald)" }}>
-                      <div>₹{dailySales.toFixed(2)} (Today)</div>
-                      <div style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "normal" }}>
-                        ₹{sales.toFixed(2)} total
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                        <button
-                          onClick={() => {
-                            setEditingWorker(w);
-                            setWorkerForm({ ...w, password: w.password || "", canCancelBills: w.canCancelBills || false });
-                            setIsWorkerModalOpen(true);
-                          }}
-                          style={{
-                            padding: "4px 10px", borderRadius: "4px",
-                            background: "var(--bg-primary)", border: "1px solid var(--border-color)",
-                            fontSize: "11px", cursor: "pointer"
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm("Are you sure you want to delete this cashier account?")) {
-                              onDeleteWorker(w.id);
-                            }
-                          }}
-                          style={{
-                            padding: "4px 10px", borderRadius: "4px",
-                            background: "rgba(244, 63, 94, 0.1)", border: "1px solid rgba(244, 63, 94, 0.3)",
-                            color: "var(--accent-rose)", fontSize: "11px", cursor: "pointer"
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
+                        <div style={{ color: "var(--accent-blue)", textDecoration: "underline" }}>{theirDailyTx.length} bills (Today)</div>
+                        <div style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "normal" }}>
+                          {theirTx.length} total
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: "bold", color: "var(--accent-emerald)" }}>
+                        <div>₹{dailySales.toFixed(2)} (Today)</div>
+                        <div style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "normal" }}>
+                          ₹{sales.toFixed(2)} total
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          <button
+                            onClick={() => {
+                              setEditingWorker(w);
+                              setWorkerForm({ ...w, password: w.password || "", canCancelBills: w.canCancelBills || false });
+                              setIsWorkerModalOpen(true);
+                            }}
+                            style={{
+                              padding: "4px 10px", borderRadius: "4px",
+                              background: "var(--bg-primary)", border: "1px solid var(--border-color)",
+                              fontSize: "11px", cursor: "pointer"
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm("Are you sure you want to delete this cashier account?")) {
+                                onDeleteWorker(w.id);
+                              }
+                            }}
+                            style={{
+                              padding: "4px 10px", borderRadius: "4px",
+                              background: "rgba(244, 63, 94, 0.1)", border: "1px solid rgba(244, 63, 94, 0.3)",
+                              color: "var(--accent-rose)", fontSize: "11px", cursor: "pointer"
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {staffAccounts.length === 0 && (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: "center", padding: "24px", color: "var(--text-dim)", fontSize: "12px" }}>
+                      No staff cashier accounts created yet. Click "Add Staff Account" above to create sub-accounts attached to your store.
                     </td>
                   </tr>
-                );
-              })}
-              {staffAccounts.length === 0 && (
-                <tr>
-                  <td colSpan="8" style={{ textAlign: "center", padding: "24px", color: "var(--text-dim)", fontSize: "12px" }}>
-                    No staff cashier accounts created yet. Click "Add Staff Account" above to create sub-accounts attached to your store.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

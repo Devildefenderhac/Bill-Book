@@ -40,6 +40,8 @@ export default function BillingView({
   onNavigateTab,
 }) {
   const [activeTab, setActiveTab] = useState("new_bill");
+  const [mobileBillingTab, setMobileBillingTab] = useState("entry");
+  const [showTips, setShowTips] = useState(false);
   const [historyFilter, setHistoryFilter] = useState("ALL");
   const [returnModalTransaction, setReturnModalTransaction] = useState(null);
   const [showPendingModal, setShowPendingModal] = useState(false);
@@ -325,20 +327,32 @@ export default function BillingView({
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px", height: "100%" }}>
+    <div className="billing-view-root" style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%", maxWidth: "100%", height: "100%", boxSizing: "border-box" }}>
       {/* Top Bar with Active User Badge, Today's Sales Breakdown & Tabs */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-        <div className="billing-nav-buttons-bar">
+      <div className="billing-top-control-bar" style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
+        {/* Full-Width Symmetrical Top Nav Buttons */}
+        <div className="billing-nav-buttons-bar" style={{ display: "flex", gap: "8px", width: "100%", boxSizing: "border-box" }}>
           <button
             className={`billing-nav-btn ${activeTab === "new_bill" ? "active-blue" : ""}`}
             onClick={() => setActiveTab("new_bill")}
             style={{
+              flex: "1 1 0",
+              justifyContent: "center",
+              textAlign: "center",
               background: activeTab === "new_bill" ? "var(--accent-blue)" : "var(--bg-card)",
               color: activeTab === "new_bill" ? "#fff" : "var(--text-muted)",
               border: activeTab === "new_bill" ? "none" : "1px solid var(--border-color)",
+              padding: "8px 12px",
+              fontSize: "clamp(12px, 2.5vw, 13.5px)",
+              fontWeight: "700",
+              borderRadius: "8px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              whiteSpace: "nowrap",
             }}
           >
-            <ShoppingCart size={16} />
+            <ShoppingCart size={15} />
             <span>New Bill</span>
           </button>
 
@@ -349,13 +363,24 @@ export default function BillingView({
               setHistoryFilter("ALL");
             }}
             style={{
+              flex: "1 1 0",
+              justifyContent: "center",
+              textAlign: "center",
               background: activeTab === "history" ? "var(--accent-indigo)" : "var(--bg-card)",
               color: activeTab === "history" ? "#fff" : "var(--text-muted)",
               border: activeTab === "history" ? "none" : "1px solid var(--border-color)",
+              padding: "8px 12px",
+              fontSize: "clamp(12px, 2.5vw, 13.5px)",
+              fontWeight: "700",
+              borderRadius: "8px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              whiteSpace: "nowrap",
             }}
           >
-            <History size={16} />
-            <span>Today's History ({myHistory.length})</span>
+            <History size={15} />
+            <span>History ({myHistory.length})</span>
           </button>
 
           <button
@@ -368,17 +393,28 @@ export default function BillingView({
               }
             }}
             style={{
+              flex: "1 1 0",
+              justifyContent: "center",
+              textAlign: "center",
               background: "rgba(245, 158, 11, 0.15)",
               color: "var(--accent-amber)",
               border: "1px solid rgba(245, 158, 11, 0.4)",
+              padding: "8px 12px",
+              fontSize: "clamp(12px, 2.5vw, 13.5px)",
+              fontWeight: "700",
+              borderRadius: "8px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              whiteSpace: "nowrap",
             }}
           >
-            <Clock size={16} color="var(--accent-amber)" />
-            <span>Pending Udhar Bills</span>
+            <Clock size={15} color="var(--accent-amber)" />
+            <span>Udhar Bills</span>
           </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", overflowX: "auto", whiteSpace: "nowrap", maxWidth: "100%", paddingBottom: "2px" }}>
           {/* Working ALL / Today Total Button */}
           <button
             type="button"
@@ -747,22 +783,38 @@ export default function BillingView({
                           padding: "4px 8px",
                           borderRadius: "12px",
                           fontSize: "11px",
-                          fontWeight: "600",
+                          fontWeight: "700",
                           background:
-                            tx.status === "COMPLETED" && tx.type === "RETURN"
-                              ? "rgba(244, 63, 94, 0.1)"
-                              : tx.status === "COMPLETED"
-                                ? "rgba(16,185,129,0.1)"
-                                : "rgba(244, 63, 94, 0.1)",
+                            tx.status === "RETURNED" || tx.type === "RETURN"
+                              ? "rgba(244, 63, 94, 0.15)"
+                              : tx.status === "PARTIALLY_RETURNED"
+                                ? "rgba(245, 158, 11, 0.15)"
+                                : tx.status === "COMPLETED"
+                                  ? "rgba(16,185,129,0.15)"
+                                  : "rgba(244, 63, 94, 0.15)",
                           color:
-                            tx.status === "COMPLETED" && tx.type === "RETURN"
+                            tx.status === "RETURNED" || tx.type === "RETURN"
                               ? "var(--accent-rose)"
-                              : tx.status === "COMPLETED"
-                                ? "var(--accent-emerald)"
-                                : "var(--accent-rose)",
+                              : tx.status === "PARTIALLY_RETURNED"
+                                ? "var(--accent-amber)"
+                                : tx.status === "COMPLETED"
+                                  ? "var(--accent-emerald)"
+                                  : "var(--accent-rose)",
+                          border:
+                            tx.status === "RETURNED" || tx.type === "RETURN"
+                              ? "1px solid rgba(244, 63, 94, 0.4)"
+                              : tx.status === "PARTIALLY_RETURNED"
+                                ? "1px solid rgba(245, 158, 11, 0.4)"
+                                : tx.status === "COMPLETED"
+                                  ? "1px solid rgba(16, 185, 129, 0.4)"
+                                  : "1px solid rgba(244, 63, 94, 0.4)",
                         }}
                       >
-                        {tx.type === "RETURN" ? "RETURNED" : tx.status}
+                        {tx.status === "RETURNED" || tx.type === "RETURN"
+                          ? "RETURNED"
+                          : tx.status === "PARTIALLY_RETURNED"
+                            ? "PARTIALLY RET"
+                            : tx.status}
                       </span>
                     </td>
                     <td>
@@ -805,7 +857,7 @@ export default function BillingView({
                                 Cancel
                               </button>
                             )}
-                            {tx.type !== 'RETURN' && (
+                            {tx.status !== "RETURNED" && tx.type !== "RETURN" && (
                               <button
                                 onClick={() => setReturnModalTransaction(tx)}
                                 style={{
@@ -872,652 +924,766 @@ export default function BillingView({
           </div>
         </div>
       ) : (
-        <div className="pos-grid">
-          {/* Left Panel: Fast Item Price Entry */}
-          <div className="catalog-panel" style={{ gap: "20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h2 style={{ fontSize: "18px", fontWeight: "800", color: "#f8fafc", display: "flex", alignItems: "center", gap: "8px" }}>
-                <Zap size={22} color="var(--accent-amber)" />
-                <span>Quick Item Price Billing Counter</span>
-              </h2>
-              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                No product inventory needed
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
+          {/* Mobile View Switcher (< 768px) */}
+          <div className="mobile-pos-switcher">
+            <button
+              type="button"
+              className={`mobile-pos-switcher-btn ${mobileBillingTab === "entry" ? "active" : ""}`}
+              onClick={() => setMobileBillingTab("entry")}
+            >
+              <Zap size={15} />
+              <span>1. Enter Price</span>
+            </button>
+            <button
+              type="button"
+              className={`mobile-pos-switcher-btn ${mobileBillingTab === "cart" ? "active" : ""}`}
+              onClick={() => setMobileBillingTab("cart")}
+            >
+              <ShoppingCart size={15} />
+              <span>
+                2. Bill Cart ({cart.length}) {cart.length > 0 ? `• ₹${grandTotal.toFixed(0)}` : ""}
               </span>
+            </button>
+          </div>
+
+          <div className="pos-grid">
+
+            {/* Left Panel: Fast Item Price Entry */}
+            <div className={`catalog-panel ${mobileBillingTab === "cart" ? "mobile-hidden-tab" : ""}`} style={{ gap: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ fontSize: "16px", fontWeight: "800", color: "#f8fafc", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Zap size={20} color="var(--accent-amber)" />
+                  <span>Quick Item Price Entry</span>
+                </h2>
+                <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                  Fast Counter Mode
+                </span>
+              </div>
+
+              {/* Manual Item Price Input Card */}
+              <div
+                style={{
+                  background: "var(--bg-card)",
+                  border: "2px solid var(--accent-indigo)",
+                  borderRadius: "var(--radius-lg)",
+                  padding: "clamp(12px, 3vw, 20px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "14px",
+                  boxShadow: "var(--shadow-md)",
+                }}
+              >
+                <div className="billing-input-grid">
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: "12px", fontWeight: "700" }}>Item Name (Optional)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Item 1, Jeans, Shirt"
+                      style={{ padding: "10px 12px", fontSize: "14px" }}
+                      value={itemNameInput}
+                      onChange={(e) => setItemNameInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddItem();
+                      }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <label className="form-label" style={{ fontSize: "12px", fontWeight: "800", color: "var(--accent-emerald-light)" }}>
+                        Manual Item Price (₹)
+                      </label>
+                      <span style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "600" }}>
+                        Press Enter ↵ to Add
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "stretch" }}>
+                      <div style={{ position: "relative", flex: "1 1 auto" }}>
+                        <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "20px", fontWeight: "900", color: "var(--accent-emerald-light)" }}>
+                          ₹
+                        </span>
+                        <input
+                          type="number"
+                          className="form-control"
+                          placeholder="0.00"
+                          style={{
+                            fontSize: "clamp(20px, 4vw, 24px)",
+                            fontWeight: "900",
+                            color: "var(--accent-emerald-light)",
+                            padding: "8px 12px 8px 32px",
+                            width: "100%",
+                            background: "var(--bg-primary)",
+                            border: "1.5px solid var(--accent-emerald)",
+                            boxShadow: "0 0 12px rgba(16, 185, 129, 0.15)",
+                          }}
+                          value={itemPriceInput}
+                          onChange={(e) => setItemPriceInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleAddItem();
+                          }}
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        onClick={() => handleAddItem()}
+                        className="checkout-btn"
+                        style={{ width: "auto", padding: "0 clamp(14px, 3vw, 22px)", fontSize: "14.5px", flexShrink: 0, whiteSpace: "nowrap" }}
+                      >
+                        <Plus size={18} />
+                        <span>Add Item</span>
+                      </button>
+                    </div>
+
+                    {/* 1-Tap Quick Amount Presets */}
+                    <div className="denom-chips-row" style={{ marginTop: "8px" }}>
+                      <span style={{ fontSize: "10.5px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        Quick ₹:
+                      </span>
+                      {[50, 100, 200, 500, 1000, 2000].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          className="denom-chip"
+                          onClick={() => {
+                            setItemPriceInput(String(val));
+                            if (!itemNameInput) setItemNameInput(`Item (₹${val})`);
+                          }}
+                          title={`Set price to ₹${val}`}
+                        >
+                          +₹{val}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Mobile Cart Summary Bar */}
+              {cart.length > 0 && (
+                <div className="mobile-quick-cart-bar">
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div className="mobile-cart-badge">{cart.length}</div>
+                    <div>
+                      <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "600", textTransform: "uppercase" }}>Bill Total</div>
+                      <div style={{ fontSize: "17px", fontWeight: "800", color: "var(--accent-emerald)", fontFamily: "var(--font-mono)", lineHeight: "1.1" }}>
+                        ₹{grandTotal.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="mobile-view-cart-btn"
+                    onClick={() => setMobileBillingTab("cart")}
+                  >
+                    <ShoppingCart size={15} />
+                    <span>View Bill & Pay ➔</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Instructions (Collapsible on Mobile) */}
+              <div
+                style={{
+                  background: "rgba(59, 130, 246, 0.08)",
+                  border: "1px solid rgba(59, 130, 246, 0.2)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "10px 14px",
+                  fontSize: "12px",
+                  color: "var(--text-muted)",
+                  lineHeight: "1.5",
+                }}
+              >
+                <div
+                  onClick={() => setShowTips(!showTips)}
+                  style={{
+                    color: "var(--accent-blue)",
+                    fontWeight: "700",
+                    fontSize: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  <span>💡 Smart Pricing & Discount Tips</span>
+                  <span style={{ fontSize: "10px", color: "var(--accent-blue)" }}>{showTips ? "Hide ▲" : "Show ▼"}</span>
+                </div>
+                {showTips && (
+                  <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed rgba(59, 130, 246, 0.2)" }}>
+                    • <strong>Editable Item Prices</strong>: Click & edit item prices directly in the cart list.<br />
+                    • <strong>Editable Total Payment</strong>: Type target Total Payment (e.g. <code>1800</code> instead of <code>2000</code>) — discount auto-calculates!<br />
+                    • <strong>Scale Item Prices</strong>: Click <strong>Adjust Prices</strong> to automatically update item prices to match the target total.
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Manual Item Price Input Card */}
-            <div
-              style={{
-                background: "var(--bg-card)",
-                border: "2px solid var(--accent-indigo)",
-                borderRadius: "var(--radius-lg)",
-                padding: "24px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "16px",
-                boxShadow: "var(--shadow-md)",
-              }}
-            >
-              <div className="billing-input-grid">
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "13px", fontWeight: "700" }}>Item Name (Optional)</label>
+            {/* Right Panel: Live Bill Summary & Customer Info */}
+            <div className={`cart-panel ${mobileBillingTab === "entry" ? "mobile-hidden-tab" : ""}`}>
+              <div className="cart-header">
+                <div className="cart-title" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    type="button"
+                    className="mobile-back-to-input-btn"
+                    onClick={() => setMobileBillingTab("entry")}
+                    title="Back to enter more prices"
+                  >
+                    <Plus size={14} />
+                    <span>Add More</span>
+                  </button>
+                  <ShoppingCart size={18} color="var(--accent-blue)" />
+                  <span>Bill Receipt Items</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {cart.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleHoldCart}
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: "800",
+                        padding: "4px 8px",
+                        borderRadius: "6px",
+                        background: "rgba(245, 158, 11, 0.15)",
+                        border: "1px solid rgba(245, 158, 11, 0.4)",
+                        color: "var(--accent-amber)",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                      title="Put this active bill on hold to serve another customer"
+                    >
+                      Hold (Pause)
+                    </button>
+                  )}
+                  <div className="bill-no-badge">{currentBillNo}</div>
+                </div>
+              </div>
+
+              {/* Customer Details */}
+              <div className="customer-info-inputs-grid">
+                <div style={{ position: "relative" }}>
+                  <UserCheck
+                    size={14}
+                    style={{
+                      position: "absolute",
+                      left: "8px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "var(--text-dim)",
+                    }}
+                  />
                   <input
                     type="text"
-                    className="form-control"
-                    placeholder="e.g. Item 1, Jeans, Shirt"
-                    style={{ padding: "12px 14px", fontSize: "14px" }}
-                    value={itemNameInput}
-                    onChange={(e) => setItemNameInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleAddItem();
+                    placeholder="Customer Name"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "6px 8px 6px 28px",
+                      fontSize: "11px",
+                      background: "var(--bg-primary)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "6px",
+                      color: "var(--text-main)",
                     }}
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "13px", fontWeight: "700", color: "var(--accent-emerald)" }}>Manual Enter Item Price (₹)</label>
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <input
-                      type="number"
-                      className="form-control"
-                      placeholder="Type Price (e.g. 750)"
-                      style={{ fontSize: "22px", fontWeight: "bold", color: "var(--accent-emerald)", padding: "10px 14px" }}
-                      value={itemPriceInput}
-                      onChange={(e) => setItemPriceInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleAddItem();
-                      }}
-                      autoFocus
-                    />
-                    <button
-                      onClick={() => handleAddItem()}
-                      className="checkout-btn"
-                      style={{ width: "auto", padding: "0 28px", fontSize: "16px" }}
-                    >
-                      <Plus size={22} />
-                      <span>Add Item</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Instructions */}
-            <div
-              style={{
-                background: "rgba(59, 130, 246, 0.1)",
-                border: "1px solid rgba(59, 130, 246, 0.2)",
-                borderRadius: "var(--radius-md)",
-                padding: "16px",
-                fontSize: "13px",
-                color: "var(--text-muted)",
-                lineHeight: "1.6",
-              }}
-            >
-              <div style={{ color: "var(--accent-blue)", fontWeight: "700", marginBottom: "6px", fontSize: "14px" }}>
-                💡 Smart Price & Total Payment Features:
-              </div>
-              • <strong>Editable Item Prices</strong>: Click & edit item prices directly in the cart list.
-              <br />
-              • <strong>Editable Total Payment</strong>: Type target Total Payment (e.g. <code>1800</code> instead of <code>2000</code>) — discount auto-calculates!
-              <br />
-              • <strong>Scale Item Prices</strong>: Click <strong>Adjust Prices</strong> to automatically update item prices to match the target total.
-            </div>
-          </div>
-
-          {/* Right Panel: Live Bill Summary & Customer Info */}
-          <div className="cart-panel">
-            <div className="cart-header">
-              <div className="cart-title">
-                <ShoppingCart size={18} color="var(--accent-blue)" />
-                <span>Bill Receipt Items</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                {cart.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleHoldCart}
+                <div style={{ position: "relative" }}>
+                  <Phone
+                    size={14}
                     style={{
-                      fontSize: "11px",
-                      fontWeight: "800",
-                      padding: "4px 8px",
-                      borderRadius: "6px",
-                      background: "rgba(245, 158, 11, 0.15)",
-                      border: "1px solid rgba(245, 158, 11, 0.4)",
-                      color: "var(--accent-amber)",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
+                      position: "absolute",
+                      left: "8px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "var(--text-dim)",
                     }}
-                    title="Put this active bill on hold to serve another customer"
-                  >
-                    Hold (Pause)
-                  </button>
-                )}
-                <div className="bill-no-badge">{currentBillNo}</div>
-              </div>
-            </div>
-
-            {/* Customer Details */}
-            <div className="customer-info-inputs-grid">
-              <div style={{ position: "relative" }}>
-                <UserCheck
-                  size={14}
-                  style={{
-                    position: "absolute",
-                    left: "8px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "var(--text-dim)",
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder="Customer Name"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px 6px 28px",
-                    fontSize: "11px",
-                    background: "var(--bg-primary)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "6px",
-                    color: "var(--text-main)",
-                  }}
-                />
-              </div>
-
-              <div style={{ position: "relative" }}>
-                <Phone
-                  size={14}
-                  style={{
-                    position: "absolute",
-                    left: "8px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "var(--text-dim)",
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder="Phone Number"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px 6px 28px",
-                    fontSize: "11px",
-                    background: "var(--bg-primary)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "6px",
-                    color: "var(--text-main)",
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Held Carts Notification / Resume Panel */}
-            {heldCarts.length > 0 && (
-              <div style={{ background: "rgba(245, 158, 11, 0.08)", borderBottom: "1px solid rgba(245, 158, 11, 0.2)", padding: "10px 16px" }}>
-                <div style={{ fontSize: "11px", fontWeight: "900", color: "var(--accent-amber)", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                  <span>📥 HELD BILLS IN QUEUE ({heldCarts.length})</span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  {heldCarts.map((held) => (
-                    <div key={held.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(15, 23, 42, 0.6)", border: "1px solid var(--border-color)", padding: "6px 10px", borderRadius: "6px" }}>
-                      <div style={{ fontSize: "11px" }}>
-                        <div style={{ color: "#fff", fontWeight: "700" }}>
-                          {held.customerName || "Walk-in"} ({held.cart.length} items)
-                        </div>
-                        <div style={{ fontSize: "9px", color: "var(--text-muted)", marginTop: "2px" }}>
-                          Paused at {new Date(held.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleResumeCart(held)}
-                        style={{
-                          fontSize: "10px",
-                          fontWeight: "800",
-                          background: "var(--accent-blue)",
-                          color: "#fff",
-                          border: "none",
-                          padding: "3px 8px",
-                          borderRadius: "4px",
-                          cursor: "pointer"
-                        }}
-                      >
-                        Resume ⚡
-                      </button>
-                    </div>
-                  ))}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Phone Number"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "6px 8px 6px 28px",
+                      fontSize: "11px",
+                      background: "var(--bg-primary)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "6px",
+                      color: "var(--text-main)",
+                    }}
+                  />
                 </div>
               </div>
-            )}
 
-            {/* Bill Items List */}
-            <div className="cart-items-container">
-              {cart.length === 0 ? (
-                <div className="empty-cart">
-                  <Calculator size={40} color="var(--border-bright)" />
-                  <div>No Items Billed</div>
-                  <div style={{ fontSize: "12px" }}>
-                    Type an item price on the left to add Item 1, Item 2, Item 3
+              {/* Held Carts Notification / Resume Panel */}
+              {heldCarts.length > 0 && (
+                <div style={{ background: "rgba(245, 158, 11, 0.08)", borderBottom: "1px solid rgba(245, 158, 11, 0.2)", padding: "10px 16px" }}>
+                  <div style={{ fontSize: "11px", fontWeight: "900", color: "var(--accent-amber)", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                    <span>📥 HELD BILLS IN QUEUE ({heldCarts.length})</span>
                   </div>
-                </div>
-              ) : (
-                cart.map((item, index) => (
-                  <div key={item.id} className="cart-item">
-                    <div className="cart-item-top">
-                      <div style={{ flex: 1 }}>
-                        <input
-                          type="text"
-                          value={item.name}
-                          onChange={(e) => {
-                            const newName = e.target.value;
-                            setCart((prev) => {
-                              const copy = [...prev];
-                              copy[index].name = newName;
-                              return copy;
-                            });
-                          }}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {heldCarts.map((held) => (
+                      <div key={held.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(15, 23, 42, 0.6)", border: "1px solid var(--border-color)", padding: "6px 10px", borderRadius: "6px" }}>
+                        <div style={{ fontSize: "11px" }}>
+                          <div style={{ color: "#fff", fontWeight: "700" }}>
+                            {held.customerName || "Walk-in"} ({held.cart.length} items)
+                          </div>
+                          <div style={{ fontSize: "9px", color: "var(--text-muted)", marginTop: "2px" }}>
+                            Paused at {new Date(held.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleResumeCart(held)}
                           style={{
-                            background: "transparent",
+                            fontSize: "10px",
+                            fontWeight: "800",
+                            background: "var(--accent-blue)",
+                            color: "#fff",
                             border: "none",
-                            fontWeight: "700",
-                            color: "var(--text-main)",
-                            fontSize: "14px",
-                            width: "100%",
-                          }}
-                        />
-                      </div>
-
-                      <button
-                        onClick={() => handleRemoveItem(index)}
-                        style={{ background: "transparent", color: "var(--accent-rose)" }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
-                    <div className="cart-item-bottom">
-                      <div className="qty-controls">
-                        <button className="qty-btn" onClick={() => handleUpdateQty(index, -1)}>
-                          <Minus size={12} />
-                        </button>
-                        <span className="qty-val">{item.qty}</span>
-                        <button className="qty-btn" onClick={() => handleUpdateQty(index, 1)}>
-                          <Plus size={12} />
-                        </button>
-                      </div>
-
-                      {/* Editable Item Price */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Price: ₹</span>
-                        <input
-                          type="number"
-                          style={{
-                            width: "80px",
-                            padding: "4px 6px",
-                            fontSize: "13px",
-                            fontWeight: "700",
-                            background: "var(--bg-primary)",
-                            border: "1px solid var(--border-color)",
+                            padding: "3px 8px",
                             borderRadius: "4px",
-                            color: "var(--accent-emerald)",
-                            fontFamily: "var(--font-mono)",
-                            textAlign: "right",
+                            cursor: "pointer"
                           }}
-                          value={item.price}
-                          onChange={(e) => handleUpdateItemPrice(index, e.target.value)}
-                        />
+                        >
+                          Resume ⚡
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Bill Items List */}
+              <div className="cart-items-container">
+                {cart.length === 0 ? (
+                  <div className="empty-cart">
+                    <Calculator size={40} color="var(--border-bright)" />
+                    <div>No Items Billed</div>
+                    <div style={{ fontSize: "12px" }}>
+                      Type an item price on the left to add Item 1, Item 2, Item 3
+                    </div>
+                  </div>
+                ) : (
+                  cart.map((item, index) => (
+                    <div key={item.id} className="cart-item">
+                      <div className="cart-item-top">
+                        <div style={{ flex: 1 }}>
+                          <input
+                            type="text"
+                            value={item.name}
+                            onChange={(e) => {
+                              const newName = e.target.value;
+                              setCart((prev) => {
+                                const copy = [...prev];
+                                copy[index].name = newName;
+                                return copy;
+                              });
+                            }}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              fontWeight: "700",
+                              color: "var(--text-main)",
+                              fontSize: "14px",
+                              width: "100%",
+                            }}
+                          />
+                        </div>
+
+                        <button
+                          onClick={() => handleRemoveItem(index)}
+                          style={{ background: "transparent", color: "var(--accent-rose)" }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      <div className="cart-item-bottom">
+                        <div className="qty-controls">
+                          <button className="qty-btn" onClick={() => handleUpdateQty(index, -1)}>
+                            <Minus size={12} />
+                          </button>
+                          <span className="qty-val">{item.qty}</span>
+                          <button className="qty-btn" onClick={() => handleUpdateQty(index, 1)}>
+                            <Plus size={12} />
+                          </button>
+                        </div>
+
+                        {/* Editable Item Price */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Price: ₹</span>
+                          <input
+                            type="number"
+                            style={{
+                              width: "80px",
+                              padding: "4px 6px",
+                              fontSize: "13px",
+                              fontWeight: "700",
+                              background: "var(--bg-primary)",
+                              border: "1px solid var(--border-color)",
+                              borderRadius: "4px",
+                              color: "var(--accent-emerald)",
+                              fontFamily: "var(--font-mono)",
+                              textAlign: "right",
+                            }}
+                            value={item.price}
+                            onChange={(e) => handleUpdateItemPrice(index, e.target.value)}
+                          />
+                        </div>
                       </div>
                     </div>
+                  ))
+                )}
+              </div>
+
+              {/* Bill Totals Summary */}
+              {/* Bill Totals Summary */}
+              <div className="cart-summary">
+                <div className="summary-row">
+                  <span>Subtotal ({cart.length} items)</span>
+                  <span style={{ fontWeight: "700", fontFamily: "var(--font-mono)" }}>₹{fmt(subtotal)}</span>
+                </div>
+
+                {/* Smart Spend-and-Save Slab Suggestion Banner */}
+                {subtotal > 0 && (
+                  <div style={{
+                    background: "linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08))",
+                    border: "1px solid rgba(99, 102, 241, 0.25)",
+                    borderRadius: "8px",
+                    padding: "8px 10px",
+                    marginTop: "-4px",
+                    marginBottom: "4px",
+                    fontSize: "11.5px",
+                  }}>
+                    {subtotal < 1999 ? (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "var(--text-main)", display: "flex", alignItems: "center", gap: "5px" }}>
+                          <Sparkles size={13} color="#818cf8" />
+                          <span>Add <strong>₹{fmt(1999 - subtotal)}</strong> more for <strong>₹200 OFF</strong></span>
+                        </span>
+                        <span style={{ color: "var(--accent-indigo)", fontSize: "10px", fontWeight: "700" }}>SLAB 1 (₹1,999)</span>
+                      </div>
+                    ) : subtotal < 3999 ? (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "var(--accent-emerald)", display: "flex", alignItems: "center", gap: "5px", fontWeight: "600" }}>
+                          <Sparkles size={13} color="#34d399" />
+                          <span>🎉 Slab 1 Reached! (Add ₹{fmt(3999 - subtotal)} for ₹500 OFF)</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDiscountChange(discountVal === 200 ? "0" : "200")}
+                          style={{
+                            fontSize: "10.5px",
+                            padding: "2px 8px",
+                            borderRadius: "6px",
+                            background: discountVal === 200 ? "#10b981" : "rgba(16, 185, 129, 0.2)",
+                            border: "1px solid #10b981",
+                            color: discountVal === 200 ? "#ffffff" : "#34d399",
+                            cursor: "pointer",
+                            fontWeight: "700"
+                          }}
+                        >
+                          {discountVal === 200 ? "✓ ₹200 Applied" : "Apply ₹200"}
+                        </button>
+                      </div>
+                    ) : subtotal < 6999 ? (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "var(--accent-emerald)", display: "flex", alignItems: "center", gap: "5px", fontWeight: "600" }}>
+                          <Sparkles size={13} color="#34d399" />
+                          <span>🔥 Mega Slab! (Add ₹{fmt(6999 - subtotal)} for ₹1,000 OFF)</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDiscountChange(discountVal === 500 ? "0" : "500")}
+                          style={{
+                            fontSize: "10.5px",
+                            padding: "2px 8px",
+                            borderRadius: "6px",
+                            background: discountVal === 500 ? "#10b981" : "rgba(16, 185, 129, 0.2)",
+                            border: "1px solid #10b981",
+                            color: discountVal === 500 ? "#ffffff" : "#34d399",
+                            cursor: "pointer",
+                            fontWeight: "700"
+                          }}
+                        >
+                          {discountVal === 500 ? "✓ ₹500 Applied" : "Apply ₹500"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "var(--accent-emerald)", display: "flex", alignItems: "center", gap: "5px", fontWeight: "600" }}>
+                          <Sparkles size={13} color="#34d399" />
+                          <span>👑 VIP Festival Slab Active!</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDiscountChange(discountVal === 1000 ? "0" : "1000")}
+                          style={{
+                            fontSize: "10.5px",
+                            padding: "2px 8px",
+                            borderRadius: "6px",
+                            background: discountVal === 1000 ? "#10b981" : "rgba(16, 185, 129, 0.2)",
+                            border: "1px solid #10b981",
+                            color: discountVal === 1000 ? "#ffffff" : "#34d399",
+                            cursor: "pointer",
+                            fontWeight: "700"
+                          }}
+                        >
+                          {discountVal === 1000 ? "✓ ₹1,000 Applied" : "Apply ₹1,000"}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ))
-              )}
-            </div>
+                )}
 
-            {/* Bill Totals Summary */}
-            {/* Bill Totals Summary */}
-            <div className="cart-summary">
-              <div className="summary-row">
-                <span>Subtotal ({cart.length} items)</span>
-                <span style={{ fontWeight: "700", fontFamily: "var(--font-mono)" }}>₹{fmt(subtotal)}</span>
-              </div>
-
-              {/* Smart Spend-and-Save Slab Suggestion Banner */}
-              {subtotal > 0 && (
-                <div style={{
-                  background: "linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08))",
-                  border: "1px solid rgba(99, 102, 241, 0.25)",
-                  borderRadius: "8px",
-                  padding: "8px 10px",
-                  marginTop: "-4px",
-                  marginBottom: "4px",
-                  fontSize: "11.5px",
-                }}>
-                  {subtotal < 1999 ? (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: "var(--text-main)", display: "flex", alignItems: "center", gap: "5px" }}>
-                        <Sparkles size={13} color="#818cf8" />
-                        <span>Add <strong>₹{fmt(1999 - subtotal)}</strong> more for <strong>₹200 OFF</strong></span>
-                      </span>
-                      <span style={{ color: "var(--accent-indigo)", fontSize: "10px", fontWeight: "700" }}>SLAB 1 (₹1,999)</span>
-                    </div>
-                  ) : subtotal < 3999 ? (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: "var(--accent-emerald)", display: "flex", alignItems: "center", gap: "5px", fontWeight: "600" }}>
-                        <Sparkles size={13} color="#34d399" />
-                        <span>🎉 Slab 1 Reached! (Add ₹{fmt(3999 - subtotal)} for ₹500 OFF)</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleDiscountChange(discountVal === 200 ? "0" : "200")}
-                        style={{
-                          fontSize: "10.5px",
-                          padding: "2px 8px",
-                          borderRadius: "6px",
-                          background: discountVal === 200 ? "#10b981" : "rgba(16, 185, 129, 0.2)",
-                          border: "1px solid #10b981",
-                          color: discountVal === 200 ? "#ffffff" : "#34d399",
-                          cursor: "pointer",
-                          fontWeight: "700"
-                        }}
-                      >
-                        {discountVal === 200 ? "✓ ₹200 Applied" : "Apply ₹200"}
-                      </button>
-                    </div>
-                  ) : subtotal < 6999 ? (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: "var(--accent-emerald)", display: "flex", alignItems: "center", gap: "5px", fontWeight: "600" }}>
-                        <Sparkles size={13} color="#34d399" />
-                        <span>🔥 Mega Slab! (Add ₹{fmt(6999 - subtotal)} for ₹1,000 OFF)</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleDiscountChange(discountVal === 500 ? "0" : "500")}
-                        style={{
-                          fontSize: "10.5px",
-                          padding: "2px 8px",
-                          borderRadius: "6px",
-                          background: discountVal === 500 ? "#10b981" : "rgba(16, 185, 129, 0.2)",
-                          border: "1px solid #10b981",
-                          color: discountVal === 500 ? "#ffffff" : "#34d399",
-                          cursor: "pointer",
-                          fontWeight: "700"
-                        }}
-                      >
-                        {discountVal === 500 ? "✓ ₹500 Applied" : "Apply ₹500"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: "var(--accent-emerald)", display: "flex", alignItems: "center", gap: "5px", fontWeight: "600" }}>
-                        <Sparkles size={13} color="#34d399" />
-                        <span>👑 VIP Festival Slab Active!</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleDiscountChange(discountVal === 1000 ? "0" : "1000")}
-                        style={{
-                          fontSize: "10.5px",
-                          padding: "2px 8px",
-                          borderRadius: "6px",
-                          background: discountVal === 1000 ? "#10b981" : "rgba(16, 185, 129, 0.2)",
-                          border: "1px solid #10b981",
-                          color: discountVal === 1000 ? "#ffffff" : "#34d399",
-                          cursor: "pointer",
-                          fontWeight: "700"
-                        }}
-                      >
-                        {discountVal === 1000 ? "✓ ₹1,000 Applied" : "Apply ₹1,000"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Way 1: Flat Discount Input + Ratio & Rupee Pills */}
-              <div className="summary-row" style={{ alignItems: "center" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                  <Tag size={13} color="var(--accent-rose)" />
-                  <span>Discount (₹)</span>
-                </span>
-                <input
-                  type="number"
-                  placeholder="0"
-                  style={{
-                    width: "100px",
-                    padding: "4px 8px",
-                    fontSize: "13px",
-                    fontWeight: "700",
-                    background: "var(--bg-primary)",
-                    border: "1px solid var(--accent-rose)",
-                    borderRadius: "4px",
-                    color: "var(--accent-rose)",
-                    fontFamily: "var(--font-mono)",
-                    textAlign: "right",
-                  }}
-                  value={discountInput}
-                  onChange={(e) => handleDiscountChange(e.target.value)}
-                />
-              </div>
-
-              {/* Quick Percentage & Rupee Pills */}
-              {subtotal > 0 && (
-                <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", justifyContent: "flex-end", marginTop: "-4px", marginBottom: "6px" }}>
-                  {[5, 10, 15, 20, 25].map((pct) => {
-                    const targetDisc = Math.round(subtotal * (pct / 100));
-                    const isActive = discountVal > 0 && (Math.abs(discountVal - targetDisc) <= 1 || Math.round((discountVal / subtotal) * 100) === pct);
-                    return (
-                      <button
-                        key={pct}
-                        type="button"
-                        onClick={() => handleDiscountChange(isActive ? "0" : String(targetDisc))}
-                        style={{
-                          fontSize: "10.5px",
-                          padding: "3px 9px",
-                          borderRadius: "9999px",
-                          background: isActive ? "linear-gradient(135deg, #4f46e5, #6366f1)" : "#f1f5f9",
-                          border: `1px solid ${isActive ? "#4f46e5" : "#e2e8f0"}`,
-                          color: isActive ? "#ffffff" : "#1e293b",
-                          cursor: "pointer",
-                          fontWeight: "700",
-                          transition: "all 0.15s ease",
-                          boxShadow: isActive ? "0 2px 8px rgba(79, 70, 229, 0.4)" : "none",
-                        }}
-                        title={`${pct}% OFF (₹${fmt(targetDisc)})`}
-                      >
-                        {pct}%
-                      </button>
-                    );
-                  })}
-
-                  {[50, 70, 100].map((amt) => {
-                    const cappedAmt = Math.min(amt, subtotal);
-                    const isActive = discountVal === cappedAmt && discountVal > 0;
-                    const isDisabled = subtotal < amt;
-                    return (
-                      <button
-                        key={amt}
-                        type="button"
-                        onClick={() => handleDiscountChange(isActive ? "0" : String(cappedAmt))}
-                        disabled={isDisabled}
-                        style={{
-                          fontSize: "10.5px",
-                          padding: "3px 9px",
-                          borderRadius: "9999px",
-                          background: isActive
-                            ? "linear-gradient(135deg, #4f46e5, #6366f1)"
-                            : (isDisabled ? "rgba(100, 116, 139, 0.15)" : "#f1f5f9"),
-                          border: `1px solid ${isActive ? "#4f46e5" : (isDisabled ? "rgba(100, 116, 139, 0.3)" : "#e2e8f0")}`,
-                          color: isActive
-                            ? "#ffffff"
-                            : (isDisabled ? "var(--text-muted)" : "#1e293b"),
-                          cursor: isDisabled ? "not-allowed" : "pointer",
-                          fontWeight: "700",
-                          opacity: isDisabled ? 0.5 : 1,
-                          transition: "all 0.15s ease",
-                          boxShadow: isActive ? "0 2px 8px rgba(79, 70, 229, 0.4)" : "none",
-                        }}
-                        title={`₹${amt} Flat OFF`}
-                      >
-                        ₹{amt}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Way 3: Cash Round-Off Handover (Rounding Down Loose Change) */}
-              {subtotal > 0 && (subtotal % 10 !== 0 || subtotal % 50 !== 0) && (
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "4px 8px",
-                  background: "rgba(255, 255, 255, 0.03)",
-                  border: "1px dashed rgba(255, 255, 255, 0.1)",
-                  borderRadius: "6px",
-                  marginBottom: "8px",
-                  fontSize: "11px"
-                }}>
-                  <span style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
-                    <Coins size={12} color="#f59e0b" />
-                    <span>Cash Round-Off:</span>
+                {/* Way 1: Flat Discount Input + Ratio & Rupee Pills */}
+                <div className="summary-row" style={{ alignItems: "center" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                    <Tag size={13} color="var(--accent-rose)" />
+                    <span>Discount (₹)</span>
                   </span>
-                  <div style={{ display: "flex", gap: "4px" }}>
-                    {subtotal % 10 !== 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleDiscountChange(String(subtotal % 10))}
-                        style={{
-                          fontSize: "10px",
-                          padding: "2px 7px",
-                          borderRadius: "4px",
-                          background: discountVal === (subtotal % 10) ? "rgba(245, 158, 11, 0.3)" : "rgba(255, 255, 255, 0.06)",
-                          border: "1px solid rgba(245, 158, 11, 0.4)",
-                          color: "#fbbf24",
-                          cursor: "pointer",
-                          fontWeight: "700"
-                        }}
-                        title={`Discount loose ₹${subtotal % 10} to make total ₹${fmt(subtotal - (subtotal % 10))}`}
-                      >
-                        -₹{subtotal % 10} (₹{fmt(subtotal - (subtotal % 10))})
-                      </button>
-                    )}
-                    {subtotal % 50 !== 0 && subtotal % 50 !== subtotal % 10 && (
-                      <button
-                        type="button"
-                        onClick={() => handleDiscountChange(String(subtotal % 50))}
-                        style={{
-                          fontSize: "10px",
-                          padding: "2px 7px",
-                          borderRadius: "4px",
-                          background: discountVal === (subtotal % 50) ? "rgba(245, 158, 11, 0.3)" : "rgba(255, 255, 255, 0.06)",
-                          border: "1px solid rgba(245, 158, 11, 0.4)",
-                          color: "#fbbf24",
-                          cursor: "pointer",
-                          fontWeight: "700"
-                        }}
-                        title={`Discount loose ₹${subtotal % 50} to make total ₹${fmt(subtotal - (subtotal % 50))}`}
-                      >
-                        -₹{subtotal % 50} (₹{fmt(subtotal - (subtotal % 50))})
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Way 2: Interactive Smart Bargaining (Target Total Payment) */}
-              <div className="summary-row grand-total" style={{ alignItems: "center" }}>
-                <div>
-                  <span style={{ display: "block" }}>Total Payment (₹)</span>
-                  {discountVal > 0 && (
-                    <small style={{ fontSize: "10.5px", color: "var(--accent-emerald)", fontWeight: "600" }}>
-                      ✓ You Save: ₹{fmt(discountVal)} ({((discountVal / subtotal) * 100).toFixed(1)}%)
-                    </small>
-                  )}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <input
                     type="number"
                     placeholder="0"
                     style={{
-                      width: "140px",
-                      padding: "6px 10px",
-                      fontSize: "18px",
-                      fontWeight: "800",
+                      width: "100px",
+                      padding: "4px 8px",
+                      fontSize: "13px",
+                      fontWeight: "700",
                       background: "var(--bg-primary)",
-                      border: "2px solid var(--accent-emerald)",
-                      borderRadius: "6px",
-                      color: "var(--accent-emerald)",
+                      border: "1px solid var(--accent-rose)",
+                      borderRadius: "4px",
+                      color: "var(--accent-rose)",
                       fontFamily: "var(--font-mono)",
                       textAlign: "right",
                     }}
-                    value={customTotalInput}
-                    onChange={(e) => handleCustomTotalChange(e.target.value)}
+                    value={discountInput}
+                    onChange={(e) => handleDiscountChange(e.target.value)}
                   />
                 </div>
-              </div>
 
-              {/* Adjust Item Prices Button */}
-              {cart.length > 0 && parseFloat(customTotalInput) > 0 && discountVal > 0 && (
-                <button
-                  type="button"
-                  onClick={handleScaleItemPricesToTotal}
-                  style={{
-                    fontSize: "11.5px",
-                    padding: "7px 10px",
-                    borderRadius: "6px",
-                    background: "rgba(99, 102, 241, 0.12)",
-                    border: "1px solid rgba(99, 102, 241, 0.3)",
-                    color: "var(--accent-indigo)",
-                    fontWeight: "700",
+                {/* Quick Percentage & Rupee Pills */}
+                {subtotal > 0 && (
+                  <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", justifyContent: "flex-end", marginTop: "-4px", marginBottom: "6px" }}>
+                    {[5, 10, 15, 20, 25].map((pct) => {
+                      const targetDisc = Math.round(subtotal * (pct / 100));
+                      const isActive = discountVal > 0 && (Math.abs(discountVal - targetDisc) <= 1 || Math.round((discountVal / subtotal) * 100) === pct);
+                      return (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => handleDiscountChange(isActive ? "0" : String(targetDisc))}
+                          style={{
+                            fontSize: "10.5px",
+                            padding: "3px 9px",
+                            borderRadius: "9999px",
+                            background: isActive ? "linear-gradient(135deg, #4f46e5, #6366f1)" : "#f1f5f9",
+                            border: `1px solid ${isActive ? "#4f46e5" : "#e2e8f0"}`,
+                            color: isActive ? "#ffffff" : "#1e293b",
+                            cursor: "pointer",
+                            fontWeight: "700",
+                            transition: "all 0.15s ease",
+                            boxShadow: isActive ? "0 2px 8px rgba(79, 70, 229, 0.4)" : "none",
+                          }}
+                          title={`${pct}% OFF (₹${fmt(targetDisc)})`}
+                        >
+                          {pct}%
+                        </button>
+                      );
+                    })}
+
+                    {[50, 70, 100].map((amt) => {
+                      const cappedAmt = Math.min(amt, subtotal);
+                      const isActive = discountVal === cappedAmt && discountVal > 0;
+                      const isDisabled = subtotal < amt;
+                      return (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => handleDiscountChange(isActive ? "0" : String(cappedAmt))}
+                          disabled={isDisabled}
+                          style={{
+                            fontSize: "10.5px",
+                            padding: "3px 9px",
+                            borderRadius: "9999px",
+                            background: isActive
+                              ? "linear-gradient(135deg, #4f46e5, #6366f1)"
+                              : (isDisabled ? "rgba(100, 116, 139, 0.15)" : "#f1f5f9"),
+                            border: `1px solid ${isActive ? "#4f46e5" : (isDisabled ? "rgba(100, 116, 139, 0.3)" : "#e2e8f0")}`,
+                            color: isActive
+                              ? "#ffffff"
+                              : (isDisabled ? "var(--text-muted)" : "#1e293b"),
+                            cursor: isDisabled ? "not-allowed" : "pointer",
+                            fontWeight: "700",
+                            opacity: isDisabled ? 0.5 : 1,
+                            transition: "all 0.15s ease",
+                            boxShadow: isActive ? "0 2px 8px rgba(79, 70, 229, 0.4)" : "none",
+                          }}
+                          title={`₹${amt} Flat OFF`}
+                        >
+                          ₹{amt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Way 3: Cash Round-Off Handover (Rounding Down Loose Change) */}
+                {subtotal > 0 && (subtotal % 10 !== 0 || subtotal % 50 !== 0) && (
+                  <div style={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    gap: "6px",
-                    cursor: "pointer",
-                    width: "100%",
-                    marginTop: "-4px",
-                    marginBottom: "4px"
-                  }}
-                  title="Recalculate line-item rates so printed bill shows exact bargained total without separate discount row"
-                >
-                  <RefreshCw size={13} />
-                  <span>Adjust Item Rates to Match ₹{fmt(customTotalInput)}</span>
-                </button>
-              )}
+                    justifyContent: "space-between",
+                    padding: "4px 8px",
+                    background: "rgba(255, 255, 255, 0.03)",
+                    border: "1px dashed rgba(255, 255, 255, 0.1)",
+                    borderRadius: "6px",
+                    marginBottom: "8px",
+                    fontSize: "11px"
+                  }}>
+                    <span style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <Coins size={12} color="#f59e0b" />
+                      <span>Cash Round-Off:</span>
+                    </span>
+                    <div style={{ display: "flex", gap: "4px" }}>
+                      {subtotal % 10 !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleDiscountChange(String(subtotal % 10))}
+                          style={{
+                            fontSize: "10px",
+                            padding: "2px 7px",
+                            borderRadius: "4px",
+                            background: discountVal === (subtotal % 10) ? "rgba(245, 158, 11, 0.3)" : "rgba(255, 255, 255, 0.06)",
+                            border: "1px solid rgba(245, 158, 11, 0.4)",
+                            color: "#fbbf24",
+                            cursor: "pointer",
+                            fontWeight: "700"
+                          }}
+                          title={`Discount loose ₹${subtotal % 10} to make total ₹${fmt(subtotal - (subtotal % 10))}`}
+                        >
+                          -₹{subtotal % 10} (₹{fmt(subtotal - (subtotal % 10))})
+                        </button>
+                      )}
+                      {subtotal % 50 !== 0 && subtotal % 50 !== subtotal % 10 && (
+                        <button
+                          type="button"
+                          onClick={() => handleDiscountChange(String(subtotal % 50))}
+                          style={{
+                            fontSize: "10px",
+                            padding: "2px 7px",
+                            borderRadius: "4px",
+                            background: discountVal === (subtotal % 50) ? "rgba(245, 158, 11, 0.3)" : "rgba(255, 255, 255, 0.06)",
+                            border: "1px solid rgba(245, 158, 11, 0.4)",
+                            color: "#fbbf24",
+                            cursor: "pointer",
+                            fontWeight: "700"
+                          }}
+                          title={`Discount loose ₹${subtotal % 50} to make total ₹${fmt(subtotal - (subtotal % 50))}`}
+                        >
+                          -₹{subtotal % 50} (₹{fmt(subtotal - (subtotal % 50))})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  onClick={handleClearCart}
-                  style={{
-                    padding: "12px",
-                    borderRadius: "var(--radius-md)",
-                    background: "rgba(244, 63, 94, 0.1)",
-                    border: "1px solid rgba(244, 63, 94, 0.3)",
-                    color: "var(--accent-rose)",
-                    fontWeight: "600",
-                    fontSize: "12px",
-                  }}
-                >
-                  Clear
-                </button>
+                {/* Way 2: Interactive Smart Bargaining (Target Total Payment) */}
+                <div className="summary-row grand-total" style={{ alignItems: "center" }}>
+                  <div>
+                    <span style={{ display: "block" }}>Total Payment (₹)</span>
+                    {discountVal > 0 && (
+                      <small style={{ fontSize: "10.5px", color: "var(--accent-emerald)", fontWeight: "600" }}>
+                        ✓ You Save: ₹{fmt(discountVal)} ({((discountVal / subtotal) * 100).toFixed(1)}%)
+                      </small>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      style={{
+                        width: "140px",
+                        padding: "6px 10px",
+                        fontSize: "18px",
+                        fontWeight: "800",
+                        background: "var(--bg-primary)",
+                        border: "2px solid var(--accent-emerald)",
+                        borderRadius: "6px",
+                        color: "var(--accent-emerald)",
+                        fontFamily: "var(--font-mono)",
+                        textAlign: "right",
+                      }}
+                      value={customTotalInput}
+                      onChange={(e) => handleCustomTotalChange(e.target.value)}
+                    />
+                  </div>
+                </div>
 
-                <button
-                  className="checkout-btn"
-                  disabled={cart.length === 0}
-                  onClick={handleCheckout}
-                  style={{ flex: 1 }}
-                >
-                  <CheckCircle size={18} />
-                  <span>Collect Payment (₹{fmt(grandTotal)})</span>
-                </button>
+                {/* Adjust Item Prices Button */}
+                {cart.length > 0 && parseFloat(customTotalInput) > 0 && discountVal > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleScaleItemPricesToTotal}
+                    style={{
+                      fontSize: "11.5px",
+                      padding: "7px 10px",
+                      borderRadius: "6px",
+                      background: "rgba(99, 102, 241, 0.12)",
+                      border: "1px solid rgba(99, 102, 241, 0.3)",
+                      color: "var(--accent-indigo)",
+                      fontWeight: "700",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                      cursor: "pointer",
+                      width: "100%",
+                      marginTop: "-4px",
+                      marginBottom: "4px"
+                    }}
+                    title="Recalculate line-item rates so printed bill shows exact bargained total without separate discount row"
+                  >
+                    <RefreshCw size={13} />
+                    <span>Adjust Item Rates to Match ₹{fmt(customTotalInput)}</span>
+                  </button>
+                )}
+
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    onClick={handleClearCart}
+                    style={{
+                      padding: "12px",
+                      borderRadius: "var(--radius-md)",
+                      background: "rgba(244, 63, 94, 0.1)",
+                      border: "1px solid rgba(244, 63, 94, 0.3)",
+                      color: "var(--accent-rose)",
+                      fontWeight: "600",
+                      fontSize: "12px",
+                    }}
+                  >
+                    Clear
+                  </button>
+
+                  <button
+                    className="checkout-btn"
+                    disabled={cart.length === 0}
+                    onClick={handleCheckout}
+                    style={{ flex: 1 }}
+                  >
+                    <CheckCircle size={18} />
+                    <span>Collect Payment (₹{fmt(grandTotal)})</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

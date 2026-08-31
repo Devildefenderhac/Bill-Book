@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { X, CheckCircle, AlertCircle, Banknote, Smartphone, CreditCard, Tag } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { X, CheckCircle, AlertCircle, Banknote, Smartphone } from "lucide-react";
 
 const REFUND_MODES = [
   {
@@ -26,21 +26,31 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
   if (!isOpen || !transaction) return null;
 
   // Return qty state for each item
-  const [returnQty, setReturnQty] = useState(
-    transaction.items.reduce((acc, item) => {
-      acc[item.id] = 0;
-      return acc;
-    }, {})
-  );
-
-  // Refund mode: how the staff gives back the money
+  const [returnQty, setReturnQty] = useState({});
   const [refundMode, setRefundMode] = useState("CASH");
   const [upiRefundRef, setUpiRefundRef] = useState("");
 
-  const handleQtyChange = (id, maxQty, delta) => {
+  // Re-initialize return state whenever a transaction is opened
+  useEffect(() => {
+    if (transaction?.items) {
+      const initial = {};
+      (transaction.items || []).forEach((item, idx) => {
+        const key = item.id !== undefined && item.id !== null ? String(item.id) : `item_${idx}`;
+        initial[key] = 0;
+      });
+      setReturnQty(initial);
+      setRefundMode(transaction.paymentMode === "UPI" || transaction.paymentMode === "CARD" ? "UPI" : "CASH");
+      setUpiRefundRef("");
+    }
+  }, [transaction]);
+
+  const handleQtyChange = (key, maxQty, delta) => {
     setReturnQty((prev) => {
-      const next = (prev[id] || 0) + delta;
-      if (next >= 0 && next <= maxQty) return { ...prev, [id]: next };
+      const current = prev[key] || 0;
+      const next = current + delta;
+      if (next >= 0 && next <= maxQty) {
+        return { ...prev, [key]: next };
+      }
       return prev;
     });
   };
@@ -48,14 +58,18 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
   // Calculate total refund amount
   const refundTotal = useMemo(() => {
     let sub = 0;
-    transaction.items.forEach((item) => {
-      const qty = returnQty[item.id] || 0;
-      if (qty > 0) sub += (item.price || 0) * qty;
+    (transaction.items || []).forEach((item, idx) => {
+      const key = item.id !== undefined && item.id !== null ? String(item.id) : `item_${idx}`;
+      const qty = returnQty[key] || 0;
+      const price = Number(item.price || 0);
+      if (qty > 0) sub += price * qty;
     });
     // Apply proportional discount
     let disc = 0;
-    if (transaction.discount > 0 && transaction.subtotal > 0) {
-      disc = sub * (transaction.discount / transaction.subtotal);
+    const subtotal = Number(transaction.subtotal || 0);
+    const discount = Number(transaction.discount || 0);
+    if (discount > 0 && subtotal > 0) {
+      disc = sub * (discount / subtotal);
     }
     return Math.max(0, sub - disc);
   }, [returnQty, transaction]);
@@ -67,16 +81,25 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
   const refundDiffersFromOriginal = isUpiOriginal && isCashRefund;
 
   const handleReturn = () => {
-    const itemsToReturn = transaction.items
-      .filter((item) => returnQty[item.id] > 0)
-      .map((item) => ({ ...item, returnQty: returnQty[item.id] }));
+    const itemsToReturn = (transaction.items || [])
+      .map((item, idx) => {
+        const key = item.id !== undefined && item.id !== null ? String(item.id) : `item_${idx}`;
+        const rq = returnQty[key] || 0;
+        return {
+          ...item,
+          id: item.id !== undefined && item.id !== null ? item.id : key,
+          returnQty: rq,
+          returnedQty: rq,
+        };
+      })
+      .filter((item) => item.returnQty > 0);
 
     if (itemsToReturn.length === 0) {
-      alert("Please select at least one item to return.");
+      alert("Please select at least one item to return (Return Qty > 0).");
       return;
     }
 
-    onReturnBill(transaction.billNo, itemsToReturn, refundMode, upiRefundRef, originalPaymentMode);
+    onReturnBill(transaction.billNo, itemsToReturn, refundMode, upiRefundRef, originalPaymentMode, refundTotal);
     onClose();
   };
 
@@ -86,43 +109,64 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
     <div className="modal-overlay">
       <div
         className="modal-content"
-        style={{ maxWidth: "540px", padding: "0", overflow: "hidden" }}
+        style={{
+          maxWidth: "580px",
+          width: "100%",
+          padding: "0",
+          maxHeight: "90dvh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          borderRadius: "var(--radius-lg)",
+        }}
       >
-        {/* Header */}
+        {/* Header - Sticky */}
         <div
           style={{
-            padding: "16px 24px",
+            padding: "16px 20px",
             borderBottom: "1px solid var(--border-color)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             background: "var(--bg-secondary)",
+            flexShrink: 0,
           }}
         >
           <div>
-            <h2 style={{ fontSize: "16px", fontWeight: "700", margin: 0 }}>
+            <h2 style={{ fontSize: "16px", fontWeight: "800", margin: 0, color: "var(--text-main)" }}>
               Return Items — {transaction.billNo}
             </h2>
             <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
-              Original payment: <strong>{originalPaymentMode}</strong>
+              Original payment: <strong style={{ color: "var(--accent-blue-light)" }}>{originalPaymentMode}</strong>
               {transaction.upiRefNo && ` (Ref: ${transaction.upiRefNo})`}
             </div>
           </div>
           <button
             onClick={onClose}
-            style={{ background: "transparent", color: "var(--text-muted)", border: "none", cursor: "pointer" }}
+            style={{ background: "transparent", color: "var(--text-muted)", border: "none", cursor: "pointer", padding: "4px" }}
           >
             <X size={20} />
           </button>
         </div>
 
-        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "20px" }}>
-
+        {/* Scrollable Modal Content Body */}
+        <div
+          style={{
+            padding: "16px 20px 24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "18px",
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            flex: 1,
+          }}
+        >
           {/* ── STEP 1: Select items to return ── */}
           <div>
-            <div style={{ fontSize: "13px", fontWeight: "700", marginBottom: "10px", color: "var(--text-primary)" }}>
+            <div style={{ fontSize: "13px", fontWeight: "800", marginBottom: "8px", color: "var(--text-main)" }}>
               Step 1 — Select Items to Return
             </div>
+            <div style={{ maxHeight: "240px", overflowY: "auto", border: "1px solid var(--border-color)", borderRadius: "8px" }}>
             <table className="custom-table" style={{ width: "100%" }}>
               <thead>
                 <tr>
@@ -134,22 +178,40 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
                 </tr>
               </thead>
               <tbody>
-                {transaction.items.map((item) => {
-                  const rq = returnQty[item.id] || 0;
-                  const itemRefund = rq * (item.price || 0);
+                {(transaction.items || []).map((item, idx) => {
+                  const key = item.id !== undefined && item.id !== null ? String(item.id) : `item_${idx}`;
+                  const billedQty = Number(item.qty || item.quantity || 1);
+                  const alreadyReturned = Number(item.returnedQty || 0);
+                  const maxAvailableToReturn = Math.max(0, billedQty - alreadyReturned);
+                  const rq = returnQty[key] || 0;
+                  const price = Number(item.price || 0);
+                  const itemRefund = rq * price;
+
                   return (
-                    <tr key={item.id}>
+                    <tr key={key}>
                       <td style={{ fontWeight: "600" }}>{item.name}</td>
-                      <td>₹{item.price}</td>
-                      <td style={{ textAlign: "center" }}>{item.qty}</td>
+                      <td>₹{price.toFixed(2)}</td>
+                      <td style={{ textAlign: "center" }}>
+                        {billedQty}
+                        {alreadyReturned > 0 && (
+                          <span style={{ fontSize: "10px", color: "var(--accent-amber)", display: "block" }}>
+                            ({alreadyReturned} ret)
+                          </span>
+                        )}
+                      </td>
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "center" }}>
                           <button
-                            onClick={() => handleQtyChange(item.id, item.qty, -1)}
+                            type="button"
+                            onClick={() => handleQtyChange(key, maxAvailableToReturn, -1)}
+                            disabled={rq <= 0}
                             style={{
-                              width: "26px", height: "26px", borderRadius: "6px",
-                              background: "var(--bg-primary)", border: "1px solid var(--border-color)",
-                              cursor: "pointer", fontWeight: "bold", fontSize: "16px",
+                              width: "28px", height: "28px", borderRadius: "6px",
+                              background: rq > 0 ? "rgba(244, 63, 94, 0.2)" : "var(--bg-primary)",
+                              border: "1px solid var(--border-color)",
+                              cursor: rq > 0 ? "pointer" : "default",
+                              color: rq > 0 ? "var(--accent-rose)" : "var(--text-dim)",
+                              fontWeight: "bold", fontSize: "16px",
                               display: "flex", alignItems: "center", justifyContent: "center",
                             }}
                           >
@@ -158,28 +220,34 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
                           <input
                             type="number"
                             min="0"
-                            max={item.qty}
+                            max={maxAvailableToReturn}
                             value={rq}
                             onChange={(e) => {
                               const val = parseInt(e.target.value, 10);
+                              const parsed = isNaN(val) ? 0 : Math.min(Math.max(0, val), maxAvailableToReturn);
                               setReturnQty((prev) => ({
                                 ...prev,
-                                [item.id]: isNaN(val) ? 0 : Math.min(Math.max(0, val), item.qty),
+                                [key]: parsed,
                               }));
                             }}
                             style={{
                               width: "48px", textAlign: "center",
                               background: "var(--bg-primary)", border: "1px solid var(--border-color)",
-                              borderRadius: "6px", color: rq > 0 ? "#f87171" : "var(--text-primary)",
+                              borderRadius: "6px", color: rq > 0 ? "var(--accent-rose)" : "var(--text-main)",
                               padding: "4px", fontSize: "13px", fontWeight: "bold",
                             }}
                           />
                           <button
-                            onClick={() => handleQtyChange(item.id, item.qty, 1)}
+                            type="button"
+                            onClick={() => handleQtyChange(key, maxAvailableToReturn, 1)}
+                            disabled={rq >= maxAvailableToReturn}
                             style={{
-                              width: "26px", height: "26px", borderRadius: "6px",
-                              background: "var(--bg-primary)", border: "1px solid var(--border-color)",
-                              cursor: "pointer", fontWeight: "bold", fontSize: "16px",
+                              width: "28px", height: "28px", borderRadius: "6px",
+                              background: rq < maxAvailableToReturn ? "rgba(16, 185, 129, 0.2)" : "var(--bg-primary)",
+                              border: "1px solid var(--border-color)",
+                              cursor: rq < maxAvailableToReturn ? "pointer" : "default",
+                              color: rq < maxAvailableToReturn ? "var(--accent-emerald)" : "var(--text-dim)",
+                              fontWeight: "bold", fontSize: "16px",
                               display: "flex", alignItems: "center", justifyContent: "center",
                             }}
                           >
@@ -189,7 +257,7 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
                       </td>
                       <td style={{
                         textAlign: "right", fontWeight: "700",
-                        color: itemRefund > 0 ? "#f87171" : "var(--text-muted)",
+                        color: itemRefund > 0 ? "var(--accent-rose)" : "var(--text-muted)",
                       }}>
                         {itemRefund > 0 ? `-₹${itemRefund.toFixed(2)}` : "—"}
                       </td>
@@ -198,6 +266,7 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
                 })}
               </tbody>
             </table>
+            </div>
 
             {/* Refund total preview */}
             {refundTotal > 0 && (

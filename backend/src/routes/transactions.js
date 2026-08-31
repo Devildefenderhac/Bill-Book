@@ -177,12 +177,21 @@ router.post('/uncancel', (req, res) => {
 
 // RETURN transaction items
 router.post('/return', (req, res) => {
-  const { billNo, returnedItems, workerName, refundMode, upiRefundRef, originalPaymentMode } = req.body;
+  const { billNo, returnedItems, workerName, refundMode, upiRefundRef, originalPaymentMode, refundTotal } = req.body;
   const db = getDb();
 
   db.get('SELECT * FROM transactions WHERE billNo = ?', [billNo], (err, row) => {
     if (err || !row) return res.status(404).json({ error: 'Transaction not found' });
     const originalTx = parseTx(row);
+
+    const totalBilledQty = (originalTx.items || []).reduce((s, i) => s + (i.qty || 1), 0);
+    const totalReturnedQty = (returnedItems || []).reduce((s, i) => s + Number(i.returnQty || i.returnedQty || i.quantity || 1), 0);
+    const newStatus = totalReturnedQty >= totalBilledQty ? 'RETURNED' : 'PARTIALLY_RETURNED';
+
+    const updatedItems = (originalTx.items || []).map((item) => {
+      const ret = (returnedItems || []).find((r) => r.id === item.id);
+      return ret ? { ...item, returnedQty: Number(ret.returnQty || ret.returnedQty || 1) } : item;
+    });
 
     const returnDetails = {
       returnedItems,
@@ -190,25 +199,38 @@ router.post('/return', (req, res) => {
       refundMode,
       upiRefundRef,
       originalPaymentMode,
+      refundAmount: Number(refundTotal) || (returnedItems || []).reduce((s, i) => s + (Number(i.returnQty || i.returnedQty || 1) * (Number(i.price) || 0)), 0),
       timestamp: new Date().toISOString(),
     };
 
     db.run(
-      "UPDATE transactions SET status = 'RETURNED', returnDetails = ? WHERE billNo = ?",
-      [JSON.stringify(returnDetails), billNo],
+      "UPDATE transactions SET status = ?, items = ?, returnDetails = ? WHERE billNo = ?",
+      [newStatus, JSON.stringify(updatedItems), JSON.stringify(returnDetails), billNo],
       function (uErr) {
         if (uErr) return res.status(500).json({ error: uErr.message });
 
         // Restore stock for returned items
         if (Array.isArray(returnedItems)) {
           returnedItems.forEach((item) => {
-            if (item.id && item.quantity) {
-              db.run('UPDATE products SET stock = stock + ? WHERE id = ?', [Number(item.quantity) || 1, item.id]);
+            const qtyToRestore = Number(item.returnQty || item.returnedQty || item.quantity || item.qty || 1);
+            if (item.id) {
+              db.run('UPDATE products SET stock = stock + ? WHERE id = ?', [qtyToRestore, item.id]);
             }
           });
         }
 
-        res.json({ success: true, originalTx: { ...originalTx, status: 'RETURNED', returnDetails } });
+        const returnTx = {
+          ...originalTx,
+          status: newStatus,
+          items: updatedItems,
+          returnDetails,
+          refundAmount: returnDetails.refundAmount,
+          refundMode,
+          upiRefundRef,
+          originalPaymentMode,
+        };
+
+        res.json({ success: true, originalTx: returnTx, returnTx });
       }
     );
   });

@@ -367,6 +367,11 @@ function initDb() {
       )
     `);
 
+    // Safe column migrations for existing SQLite databases
+    db.run("ALTER TABLE transactions ADD COLUMN returnDetails TEXT", () => { });
+    db.run("ALTER TABLE transactions ADD COLUMN settlementDetails TEXT", () => { });
+    db.run("ALTER TABLE transactions ADD COLUMN printCount INTEGER DEFAULT 1", () => { });
+
     // Seed workers only if empty
     db.get('SELECT COUNT(*) as count FROM workers', [], (err, row) => {
       if (!err && row && row.count === 0) {

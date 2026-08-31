@@ -386,91 +386,104 @@ export default function PaymentModal({
         )}
 
         {paymentMode === "UPI" && (
-          <div className="qr-card">
-            <div style={{ fontWeight: "700", fontSize: "14px", color: "#1e293b" }}>
-              Scan QR Code to Pay
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "12px", width: "100%", padding: "4px 0" }}>
+            <div style={{ fontWeight: "800", fontSize: "14px", color: "var(--text-main)", display: "flex", alignItems: "center", gap: "6px" }}>
+              <QrCode size={17} color="var(--accent-emerald-light)" />
+              <span>Scan QR Code to Pay</span>
             </div>
 
-            <div style={{ position: "relative", display: "inline-block" }}>
+            {/* Centered Professional QR Stand Card */}
+            <div
+              style={{
+                background: "#ffffff",
+                padding: "14px",
+                borderRadius: "16px",
+                border: "2px solid rgba(255, 255, 255, 0.2)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "10px",
+                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.5)",
+                maxWidth: "270px",
+                width: "100%",
+                boxSizing: "border-box",
+              }}
+            >
               <div
                 style={{
-                  background: "#fff",
-                  padding: "12px",
-                  borderRadius: "12px",
-                  border: "2px solid #e2e8f0",
+                  background: "linear-gradient(135deg, var(--accent-emerald) 0%, var(--accent-emerald-dark) 100%)",
+                  borderRadius: "10px",
+                  padding: "8px 16px",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: "10px",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+                  width: "100%",
+                  boxSizing: "border-box",
                 }}
               >
-                <div
+                <span style={{ fontSize: "10.5px", color: "rgba(255, 255, 255, 0.9)", fontWeight: "800", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  AMOUNT TO PAY
+                </span>
+                <span
                   style={{
-                    background: "linear-gradient(135deg, #10b981, #059669)",
-                    borderRadius: "10px",
-                    padding: "8px 20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "2px",
-                    width: "100%",
+                    fontSize: "28px",
+                    fontWeight: "900",
+                    color: "#ffffff",
+                    fontFamily: "var(--font-mono)",
+                    letterSpacing: "-0.5px",
                   }}
                 >
-                  <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.85)", fontWeight: "600", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                    Amount to Pay
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "30px",
-                      fontWeight: "900",
-                      color: "#fff",
-                      fontFamily: "var(--font-mono)",
-                      letterSpacing: "-0.5px",
-                    }}
-                  >
-                    ₹{grandTotal.toFixed(2)}
-                  </span>
-                </div>
+                  ₹{grandTotal.toFixed(2)}
+                </span>
+              </div>
 
+              <div style={{ background: "#ffffff", padding: "4px", borderRadius: "8px", display: "flex", justifyContent: "center" }}>
                 {settings?.customQrImage ? (
                   <img
                     src={settings.customQrImage}
                     alt="Store Payment QR"
-                    style={{ width: "200px", height: "200px", objectFit: "contain", borderRadius: "6px" }}
+                    style={{ width: "185px", height: "185px", objectFit: "contain", borderRadius: "6px", display: "block" }}
                   />
                 ) : (
-                  <QRCodeSVG value={upiUrl} size={180} level="H" />
+                  <QRCodeSVG value={upiUrl} size={185} level="H" />
                 )}
+              </div>
 
-                <div style={{ fontSize: "11px", color: "#64748b", textAlign: "center" }}>
-                  Bill Ref: <strong style={{ color: "#334155" }}>{billNo}</strong>
-                </div>
+              <div style={{ fontSize: "11px", color: "#64748b", textAlign: "center", fontWeight: "600" }}>
+                Bill Ref: <strong style={{ color: "#0f172a" }}>{billNo}</strong>
               </div>
             </div>
 
-            <div className="qr-info">
-              <div>Supported: <strong>GPay / PhonePe / Paytm / BHIM</strong></div>
-              <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                UPI ID: {upiId}
+            {/* UPI Info & Supported Apps */}
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
+              <div style={{ fontSize: "12.5px", color: "var(--text-main)", fontWeight: "700" }}>
+                Supported: <strong style={{ color: "var(--accent-blue-light)" }}>GPay / PhonePe / Paytm / BHIM</strong>
+              </div>
+              <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                UPI ID: <strong style={{ color: "var(--text-main)" }}>{upiId}</strong>
               </div>
             </div>
 
             <button
+              type="button"
               onClick={handleCopyUPI}
               style={{
-                fontSize: "11px",
-                display: "flex",
+                fontSize: "11.5px",
+                display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
-                padding: "6px 12px",
-                background: "#f1f5f9",
-                borderRadius: "6px",
-                color: "#475569",
+                padding: "6px 14px",
+                background: copiedUpi ? "rgba(16, 185, 129, 0.2)" : "rgba(255, 255, 255, 0.08)",
+                border: `1px solid ${copiedUpi ? "var(--accent-emerald)" : "var(--border-color)"}`,
+                borderRadius: "var(--radius-pill)",
+                color: copiedUpi ? "var(--accent-emerald-light)" : "var(--text-secondary)",
+                fontWeight: "700",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
               }}
             >
-              {copiedUpi ? <Check size={12} color="green" /> : <Copy size={12} />}
-              <span>{copiedUpi ? "UPI URL Copied" : "Copy Payment String"}</span>
+              {copiedUpi ? <Check size={13} color="var(--accent-emerald)" /> : <Copy size={13} />}
+              <span>{copiedUpi ? "UPI Link Copied! ✓" : "Copy Payment String"}</span>
             </button>
           </div>
         )}
@@ -554,16 +567,19 @@ export default function PaymentModal({
           </div>
         )}
 
-        <div style={{ display: "flex", gap: "12px", marginTop: "10px" }}>
+        <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap", width: "100%" }}>
           <button
             onClick={() => handleConfirm(true)}
             disabled={!isFormValid}
             className="checkout-btn"
             style={{
-              flex: 2,
+              flex: "1 1 180px",
               opacity: isFormValid ? 1 : 0.4,
               cursor: isFormValid ? "pointer" : "not-allowed",
-              background: isPendingMode ? "var(--accent-amber)" : undefined
+              background: isPendingMode ? "linear-gradient(135deg, var(--accent-amber), #d97706)" : undefined,
+              minHeight: "48px",
+              fontSize: "14px",
+              fontWeight: "800",
             }}
           >
             <Printer size={18} />
@@ -574,42 +590,47 @@ export default function PaymentModal({
             onClick={() => handleConfirm(false)}
             disabled={!isFormValid}
             style={{
-              flex: 1,
-              padding: "14px",
+              flex: "1 1 120px",
+              padding: "12px 14px",
               borderRadius: "var(--radius-md)",
               background: "var(--bg-primary)",
               border: "1px solid var(--border-color)",
               color: "var(--text-main)",
-              fontWeight: "600",
-              fontSize: "13px",
+              fontWeight: "700",
+              fontSize: "12.5px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: "6px",
+              minHeight: "48px",
               opacity: isFormValid ? 1 : 0.4,
               cursor: isFormValid ? "pointer" : "not-allowed",
+              transition: "all 0.15s ease",
             }}
           >
-            <CheckCircle2 size={16} />
-            <span>Save Bill Only</span>
+            <CheckCircle2 size={16} color="var(--accent-emerald-light)" />
+            <span>Save Only</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowPreviewModal(true)}
             style={{
-              padding: "14px 18px",
+              flex: "1 1 100px",
+              padding: "12px 14px",
               borderRadius: "var(--radius-md)",
-              background: "rgba(56, 189, 248, 0.1)",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
-              color: "#38bdf8",
-              fontWeight: "600",
-              fontSize: "13px",
+              background: "rgba(59, 130, 246, 0.12)",
+              border: "1px solid rgba(59, 130, 246, 0.35)",
+              color: "var(--accent-blue-light)",
+              fontWeight: "700",
+              fontSize: "12.5px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: "6px",
+              minHeight: "48px",
               cursor: "pointer",
+              transition: "all 0.15s ease",
             }}
           >
             <Eye size={16} />

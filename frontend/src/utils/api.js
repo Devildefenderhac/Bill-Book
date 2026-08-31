@@ -194,6 +194,75 @@ export async function performFullCloudSync() {
       }
     }
 
+    // A2. Synchronize Status & Return / Refund / Cancel / Settle updates for existing transactions
+    const existingInCloud = (localTxs || []).filter((t) => cloudBillSet.has(t.billNo));
+    for (const localTx of existingInCloud) {
+      const cloudTx = (cloudTxs || []).find((ct) => ct.billNo === localTx.billNo);
+      if (!cloudTx) continue;
+
+      const isLocalReturned = localTx.status === "RETURNED" || localTx.status === "PARTIALLY_RETURNED" || !!localTx.returnDetails;
+      const isCloudReturned = cloudTx.status === "RETURNED" || cloudTx.status === "PARTIALLY_RETURNED" || !!cloudTx.returnDetails;
+      const needsReturnSync = isLocalReturned && (!isCloudReturned || cloudTx.status !== localTx.status || (localTx.returnDetails && !cloudTx.returnDetails));
+
+      if (needsReturnSync) {
+        try {
+          const retBody = {
+            billNo: localTx.billNo,
+            returnedItems: localTx.returnDetails?.returnedItems || (localTx.items || []).filter((i) => (i.returnedQty || 0) > 0 || (i.returnQty || 0) > 0),
+            workerName: localTx.returnDetails?.returnedBy || localTx.workerName || "Store Owner",
+            refundMode: localTx.returnDetails?.refundMode || localTx.refundMode || "CASH",
+            upiRefundRef: localTx.returnDetails?.upiRefundRef || localTx.upiRefundRef || "",
+            originalPaymentMode: localTx.returnDetails?.originalPaymentMode || localTx.paymentMode || "",
+            refundTotal: localTx.returnDetails?.refundAmount || localTx.refundAmount || 0,
+          };
+          await fetch(`${CLOUD_API_BASE}/transactions/return`, {
+            method: "POST",
+            headers: defaultHeaders(),
+            body: JSON.stringify(retBody),
+          });
+          pushedTxCount++;
+        } catch (err) {
+          console.warn("Failed to sync return state to cloud:", localTx.billNo, err);
+        }
+      } else if (localTx.status === "CANCELLED" && cloudTx.status !== "CANCELLED") {
+        try {
+          await fetch(`${CLOUD_API_BASE}/transactions/cancel`, {
+            method: "POST",
+            headers: defaultHeaders(),
+            body: JSON.stringify({ billNo: localTx.billNo, id: localTx.id }),
+          });
+          pushedTxCount++;
+        } catch (err) {}
+      } else if (localTx.status === "COMPLETED" && cloudTx.status === "CANCELLED") {
+        try {
+          await fetch(`${CLOUD_API_BASE}/transactions/uncancel`, {
+            method: "POST",
+            headers: defaultHeaders(),
+            body: JSON.stringify({ billNo: localTx.billNo, id: localTx.id }),
+          });
+          pushedTxCount++;
+        } catch (err) {}
+      } else if (Array.isArray(localTx.settledHistory) && localTx.settledHistory.length > ((cloudTx.settledHistory || []).length)) {
+        // Sync pending udhar settlements
+        for (const st of localTx.settledHistory) {
+          try {
+            await fetch(`${CLOUD_API_BASE}/transactions/settle`, {
+              method: "POST",
+              headers: defaultHeaders(),
+              body: JSON.stringify({
+                billNo: localTx.billNo,
+                id: localTx.id,
+                amountPaid: st.amount,
+                paymentMode: st.paymentMode,
+                settledBy: st.settledBy,
+              }),
+            });
+            pushedTxCount++;
+          } catch (err) {}
+        }
+      }
+    }
+
     // B. Pull any Cloud transactions that are missing in Local DB
     const missingInLocal = (cloudTxs || []).filter((t) => !localBillSet.has(t.billNo));
     for (const tx of missingInLocal) {

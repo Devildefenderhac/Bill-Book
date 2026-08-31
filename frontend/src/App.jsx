@@ -470,6 +470,9 @@ export default function App() {
       secureLocalStorage.setItem("billbook_transactions", updated);
       return updated;
     });
+    if (isLocalEnvironment()) {
+      performFullCloudSync().catch(() => {});
+    }
     loadLiveData(true);
   };
 
@@ -480,6 +483,9 @@ export default function App() {
       secureLocalStorage.setItem("billbook_transactions", updated);
       return updated;
     });
+    if (isLocalEnvironment()) {
+      performFullCloudSync().catch(() => {});
+    }
     loadLiveData(true);
   };
 
@@ -488,12 +494,12 @@ export default function App() {
 
     const originalTx = transactions.find((t) => t.billNo === billNo);
     const totalBilledQty = (originalTx?.items || []).reduce((s, i) => s + (i.qty || 1), 0);
-    const totalReturnedQty = (returnedItems || []).reduce((s, i) => s + (i.returnQty || i.returnedQty || 1), 0);
+    const totalReturnedQty = (returnedItems || []).reduce((s, i) => s + Number(i.returnQty || i.returnedQty || i.quantity || 1), 0);
     const returnStatus = totalReturnedQty >= totalBilledQty ? "RETURNED" : "PARTIALLY_RETURNED";
 
     const updatedItems = (originalTx?.items || []).map((item) => {
       const ret = (returnedItems || []).find((r) => r.id === item.id);
-      return ret ? { ...item, returnedQty: ret.returnQty || ret.returnedQty } : item;
+      return ret ? { ...item, returnedQty: Number(ret.returnQty || ret.returnedQty || 1) } : item;
     });
 
     const returnDetailsObj = {
@@ -540,6 +546,10 @@ export default function App() {
       secureLocalStorage.setItem("billbook_transactions", updated);
       return updated;
     });
+
+    if (isLocalEnvironment()) {
+      performFullCloudSync().catch(() => {});
+    }
     loadLiveData(true);
   };
 

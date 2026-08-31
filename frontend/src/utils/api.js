@@ -1,8 +1,15 @@
-const API_BASE =
-  import.meta.env?.VITE_API_BASE ||
-  (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname === "")
-    ? "http://127.0.0.1:5000/api"
-    : "https://billbook-api-vxph.onrender.com/api");
+// ── CENTRALIZED CLOUD DATABASE ENDPOINT ──────────────────
+// Both Localhost and GitHub Pages share this single live Cloud Database on Render
+const API_BASE = "https://billbook-api-vxph.onrender.com/api";
+
+// Local hardware port controller for USB physical printer
+const isLocalhost =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "");
+const PRINTER_API_BASE = isLocalhost ? "http://127.0.0.1:5000/api" : API_BASE;
+
 const POS_API_KEY = "BB_POS_SECURE_API_KEY_7061";
 
 const defaultHeaders = (extra = {}) => ({
@@ -246,7 +253,7 @@ export async function factoryReset() {
 // ── THERMAL PRINTER API FUNCTIONS ───────────────────
 export async function getThermalPrinterStatus() {
   try {
-    const res = await fetch(`${API_BASE}/thermal-printer/status`, {
+    const res = await fetch(`${PRINTER_API_BASE}/thermal-printer/status`, {
       headers: defaultHeaders(),
     });
     if (!res.ok) throw new Error("Printer API Error");
@@ -258,7 +265,7 @@ export async function getThermalPrinterStatus() {
 
 export async function fetchAvailablePrinters() {
   try {
-    const res = await fetch(`${API_BASE}/thermal-printer/list`, {
+    const res = await fetch(`${PRINTER_API_BASE}/thermal-printer/list`, {
       headers: defaultHeaders(),
     });
     if (!res.ok) throw new Error("Printer list error");
@@ -271,7 +278,7 @@ export async function fetchAvailablePrinters() {
 
 export async function connectThermalPrinter(printerName) {
   try {
-    const res = await fetch(`${API_BASE}/thermal-printer/connect`, {
+    const res = await fetch(`${PRINTER_API_BASE}/thermal-printer/connect`, {
       method: "POST",
       headers: defaultHeaders(),
       body: JSON.stringify({ printerName }),
@@ -285,7 +292,7 @@ export async function connectThermalPrinter(printerName) {
 
 export async function disconnectThermalPrinter() {
   try {
-    const res = await fetch(`${API_BASE}/thermal-printer/disconnect`, {
+    const res = await fetch(`${PRINTER_API_BASE}/thermal-printer/disconnect`, {
       method: "POST",
       headers: defaultHeaders(),
     });
@@ -298,7 +305,7 @@ export async function disconnectThermalPrinter() {
 
 export async function printToThermalPrinter(billData, settings) {
   try {
-    const res = await fetch(`${API_BASE}/thermal-printer/print`, {
+    const res = await fetch(`${PRINTER_API_BASE}/thermal-printer/print`, {
       method: "POST",
       headers: defaultHeaders(),
       body: JSON.stringify({ billData, settings }),
@@ -312,7 +319,7 @@ export async function printToThermalPrinter(billData, settings) {
 
 export async function testThermalPrinter() {
   try {
-    const res = await fetch(`${API_BASE}/thermal-printer/test`, {
+    const res = await fetch(`${PRINTER_API_BASE}/thermal-printer/test`, {
       method: "POST",
       headers: defaultHeaders(),
     });

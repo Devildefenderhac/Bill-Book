@@ -26,14 +26,17 @@ export default function LoginScreen({ onLogin, workers = [] }) {
     const cleanUser = username.trim().toLowerCase();
     const cleanPass = password.trim();
 
-    // 1. Authenticate against backend API if available
-    let backendChecked = false;
-    try {
-      const res = await loginWorker(username, password);
+    const isLocalhost =
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
+        window.location.hostname === "");
 
-      if (res) {
-        backendChecked = true;
-        if (res.success && res.worker) {
+    // 1. Authenticate against backend API if running locally with backend
+    if (isLocalhost) {
+      try {
+        const res = await loginWorker(username, password);
+        if (res && res.success && res.worker) {
           setIsLoading(false);
           const workerRole = res.worker.role || "Cashier";
           const isMasterAdminRole = workerRole === "master_admin" || res.worker.id === "master-admin-01";
@@ -46,29 +49,31 @@ export default function LoginScreen({ onLogin, workers = [] }) {
           onLogin({
             role: isMasterAdminRole ? "master_admin" : isAdminRole ? "admin" : "cashier",
             name: res.worker.name,
-            counter: res.worker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin" : "1"),
+            counter: res.worker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin 1" : "1"),
             username: res.worker.username || cleanUser,
             id: res.worker.id,
             canCancelBills: res.worker.canCancelBills,
             canAccessMarketing: res.worker.canAccessMarketing,
           });
           return;
-        } else {
+        } else if (res && !res.success && res.message) {
           setIsLoading(false);
-          setErrorMsg(res.message || "Invalid Account ID or Password. Please try again.");
+          setErrorMsg(res.message);
           return;
         }
+      } catch (err) {
+        console.warn("Backend API unavailable, using offline fallback", err);
       }
-    } catch (err) {
-      console.warn("Backend API unavailable, using offline worker credentials", err);
     }
 
-    // 2. Offline fallback (only when backend is unreachable / standalone mode)
-    if (!backendChecked) {
-      const activeList = workers && workers.length > 0 ? workers : INITIAL_WORKERS;
-      const decWorkers = await decryptEncryptedObject(activeList || []);
+    // 2. Client-side / Offline / GitHub Pages authentication
+    try {
+      const decInitial = (await decryptEncryptedObject(INITIAL_WORKERS || [])) || [];
+      const decWorkers = (await decryptEncryptedObject(workers || [])) || [];
 
-      const matchedWorker = (decWorkers || []).find((w) => {
+      // Combine worker list with default seeds so all accounts are verifiable offline
+      const allCandidates = [...decWorkers, ...decInitial];
+      const matchedWorker = allCandidates.find((w) => {
         if (!w) return false;
         const u = String(w.username || "").trim().toLowerCase();
         const p = String(w.phone || "").trim().toLowerCase();
@@ -86,12 +91,14 @@ export default function LoginScreen({ onLogin, workers = [] }) {
 
         if (isPassValid) {
           setIsLoading(false);
-          const isMasterAdminRole = matchedWorker.role === "master_admin" || matchedWorker.id === "master-admin-01";
+          const workerRole = matchedWorker.role || "Cashier";
+          const isMasterAdminRole = workerRole === "master_admin" || matchedWorker.id === "master-admin-01";
           const isAdminRole =
-            matchedWorker.role === "Admin" ||
-            matchedWorker.role === "admin" ||
-            matchedWorker.role === "Owner" ||
-            matchedWorker.role === "owner";
+            workerRole === "Admin" ||
+            workerRole === "admin" ||
+            workerRole === "Owner" ||
+            workerRole === "owner";
+
           onLogin({
             role: isMasterAdminRole ? "master_admin" : isAdminRole ? "admin" : "cashier",
             name: matchedWorker.name,
@@ -104,6 +111,8 @@ export default function LoginScreen({ onLogin, workers = [] }) {
           return;
         }
       }
+    } catch (e) {
+      console.error("Offline authentication error:", e);
     }
 
     setIsLoading(false);

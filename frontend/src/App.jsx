@@ -34,7 +34,7 @@ import { INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS, INITIAL_WORKERS } from "./dat
 import { secureLocalStorage, decryptEncryptedObject } from "./utils/storageCrypto";
 
 const DB_VERSION_KEY = "billbook_db_version";
-const CURRENT_DB_VERSION = "2026_08_31_v5_decrypted_passwords";
+const CURRENT_DB_VERSION = "2026_08_31_v6_gh_pages_fix";
 
 // Automatically clear outdated browser local storage if database schema/seeds updated
 function checkAndClearOldBrowserStorage() {

@@ -33,12 +33,14 @@ import {
   syncOfflineTransactions,
   enqueueOfflineTransaction,
   getOfflineQueueCount,
+  performFullCloudSync,
+  isLocalEnvironment,
 } from "./utils/api";
 import { INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS, INITIAL_WORKERS } from "./data/initialData";
 import { secureLocalStorage, decryptEncryptedObject } from "./utils/storageCrypto";
 
 const DB_VERSION_KEY = "billbook_db_version";
-const CURRENT_DB_VERSION = "2026_08_31_v6_gh_pages_fix";
+const CURRENT_DB_VERSION = "2026_08_31_v7_cloud_sync_fix";
 
 // Automatically clear outdated browser local storage if database schema/seeds updated
 function checkAndClearOldBrowserStorage() {
@@ -88,6 +90,18 @@ export default function App() {
     queueCount: 0,
   });
   const isSyncingRef = React.useRef(false);
+
+  // Floating sync notification toast
+  const [syncToast, setSyncToast] = useState({ show: false, message: "", type: "info" });
+  const toastTimeoutRef = React.useRef(null);
+
+  const showSyncToast = (message, type = "success", duration = 3500) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setSyncToast({ show: true, message, type });
+    toastTimeoutRef.current = setTimeout(() => {
+      setSyncToast((prev) => ({ ...prev, show: false }));
+    }, duration);
+  };
 
   // Physical Thermal Printer state
   const [printerStatus, setPrinterStatus] = useState({ connected: false, printerName: "" });
@@ -141,7 +155,7 @@ export default function App() {
     }, 300);
   };
 
-  // Load live data from Node.js SQLite backend with seamless background polling support
+  // Load live data with bi-directional Cloud Sync support
   const loadLiveData = async (isSilent = false) => {
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
@@ -154,7 +168,15 @@ export default function App() {
       // 1. Flush offline queue if items exist
       await syncOfflineTransactions();
 
-      // 2. Fetch fresh live data in parallel
+      // 2. Perform bi-directional Cloud Sync when user manually triggers sync (or on initial load)
+      if (!isSilent) {
+        const syncRes = await performFullCloudSync();
+        if (syncRes && syncRes.message) {
+          showSyncToast(syncRes.message, syncRes.success ? "success" : "warning");
+        }
+      }
+
+      // 3. Fetch fresh live data in parallel
       const [apiProducts, apiNextBill, apiTx, apiSet, apiWorkers] = await Promise.all([
         fetchProducts(),
         fetchNextBillNumber(),
@@ -182,6 +204,9 @@ export default function App() {
     } catch (e) {
       console.warn("Sync error:", e);
       setSyncState((prev) => ({ ...prev, status: "offline" }));
+      if (!isSilent) {
+        showSyncToast("⚠️ Connection issue. Using offline store data.", "warning");
+      }
     } finally {
       isSyncingRef.current = false;
     }
@@ -218,22 +243,29 @@ export default function App() {
     })();
   }, []);
 
-  // Continuous background polling (every 6s), tab focus sync, and keep-alive ping
+  // Continuous background polling, background cloud sync, and keep-alive ping
   useEffect(() => {
     // 1. Initial live load
     loadLiveData(false);
 
-    // 2. Real-time background sync loop (every 6 seconds)
+    // 2. Real-time background sync loop (every 8 seconds)
     const pollInterval = setInterval(() => {
       loadLiveData(true);
-    }, 6000);
+    }, 8000);
 
-    // 3. Keep-alive ping to prevent Render cold start sleep (every 8 minutes)
+    // 3. Background cloud sync loop for local cashier PC (every 30 seconds)
+    const cloudSyncInterval = setInterval(() => {
+      if (isLocalEnvironment()) {
+        performFullCloudSync().catch(() => {});
+      }
+    }, 30000);
+
+    // 4. Keep-alive ping to prevent Render cold start sleep (every 8 minutes)
     const keepAliveInterval = setInterval(() => {
       checkApiHealth();
     }, 8 * 60 * 1000);
 
-    // 4. Instant refresh on window focus / tab visibility / network reconnect
+    // 5. Instant refresh on window focus / tab visibility / network reconnect
     const handleFocus = () => loadLiveData(true);
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -250,6 +282,7 @@ export default function App() {
 
     return () => {
       clearInterval(pollInterval);
+      clearInterval(cloudSyncInterval);
       clearInterval(keepAliveInterval);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -642,6 +675,15 @@ export default function App() {
         onClose={() => setIsBackupModalOpen(false)}
         onReloadData={loadLiveData}
       />
+
+      {syncToast.show && (
+        <div className={`sync-floating-toast ${syncToast.type}`}>
+          <div className="sync-toast-content">
+            <span className="sync-toast-dot"></span>
+            <span>{syncToast.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

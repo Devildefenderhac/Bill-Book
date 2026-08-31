@@ -1,13 +1,21 @@
-// ── DYNAMIC CENTRALIZED DATABASE ENDPOINT ──────────────────
-// Automatically connects to local backend when developing on PC, or Render Cloud when deployed
+// ── DYNAMIC CENTRALIZED DATABASE & CLOUD SYNC ENGINE ──────────────────
+// Automatically connects to local backend when developing on PC, or Render Cloud when deployed on GitHub Pages
+
+export const LOCAL_API_BASE = "http://127.0.0.1:5000/api";
+export const CLOUD_API_BASE = "https://billbook-api-vxph.onrender.com/api";
+
+// Helper to determine if we are running in a local desktop / dev environment
+export const isLocalEnvironment = () => {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === "" || window.location.protocol === "file:";
+};
+
 export const getApiBaseUrl = () => {
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (host === "localhost" || host === "127.0.0.1") {
-      return "http://127.0.0.1:5000/api";
-    }
+  if (isLocalEnvironment()) {
+    return LOCAL_API_BASE;
   }
-  return "https://billbook-api-vxph.onrender.com/api";
+  return CLOUD_API_BASE;
 };
 
 export const API_BASE = getApiBaseUrl();
@@ -18,18 +26,19 @@ const PRINTER_API_BASE = "http://127.0.0.1:5000/api";
 const POS_API_KEY = "BB_POS_SECURE_API_KEY_7061";
 const OFFLINE_QUEUE_KEY = "billbook_offline_queue";
 
-const defaultHeaders = (extra = {}) => ({
+export const defaultHeaders = (extra = {}) => ({
   "Content-Type": "application/json",
   "x-pos-api-key": POS_API_KEY,
   ...extra,
 });
 
-// Fast health ping to check cloud backend availability and prevent Render cold-sleep
-export async function checkApiHealth() {
+// Fast health ping to check cloud backend availability and wake Render from cold-sleep
+export async function checkApiHealth(targetUrl = null) {
   try {
+    const url = targetUrl || `${getApiBaseUrl()}/health`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    const res = await fetch(`${getApiBaseUrl()}/health`, {
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const res = await fetch(url, {
       headers: defaultHeaders(),
       signal: controller.signal,
     });
@@ -37,6 +46,24 @@ export async function checkApiHealth() {
     return res.ok;
   } catch (e) {
     return false;
+  }
+}
+
+// Background Cloud Replication: Sends mutations made on local PC to Render Cloud in background
+async function replicateToCloud(endpoint, method = "POST", body = null) {
+  if (!isLocalEnvironment()) return; // Only local PC needs to replicate to cloud
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    await fetch(`${CLOUD_API_BASE}${endpoint}`, {
+      method,
+      headers: defaultHeaders(),
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+  } catch (err) {
+    console.warn(`[Cloud Replication] Background sync to ${endpoint} skipped/offline:`, err.message);
   }
 }
 
@@ -103,6 +130,146 @@ export async function syncOfflineTransactions() {
   }
 }
 
+// ── FULL BI-DIRECTIONAL CLOUD SYNCHRONIZATION ───────────────────
+// Synchronizes all local transactions, products, settings, and workers to Render Cloud
+// so they immediately appear on GitHub Pages / remote devices
+export async function performFullCloudSync() {
+  const isLocal = isLocalEnvironment();
+
+  try {
+    // 1. If running on GitHub Pages (remote), simply fetch fresh live data from Cloud
+    if (!isLocal) {
+      const [cloudTxs, cloudProds, cloudWorkers, cloudSettings] = await Promise.all([
+        fetch(`${CLOUD_API_BASE}/transactions`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
+        fetch(`${CLOUD_API_BASE}/products`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
+        fetch(`${CLOUD_API_BASE}/workers/all`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
+        fetch(`${CLOUD_API_BASE}/settings`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
+      ]);
+      return {
+        success: true,
+        isLocal: false,
+        totalTxs: cloudTxs?.length || 0,
+        transactions: cloudTxs,
+        products: cloudProds,
+        workers: cloudWorkers,
+        settings: cloudSettings,
+        message: "☁️ Live Cloud Synced: Latest store data loaded!",
+      };
+    }
+
+    // 2. Running on Localhost / Local PC: Perform full 2-way sync with Render Cloud
+    // First wake up / verify cloud server
+    const isCloudOnline = await checkApiHealth(`${CLOUD_API_BASE}/health`);
+    if (!isCloudOnline) {
+      console.warn("Cloud backend is sleeping or unreachable, retrying ping...");
+    }
+
+    // Fetch local and cloud datasets in parallel
+    const [localTxs, localProds, localWorkers, localSettings, cloudTxs] = await Promise.all([
+      fetch(`${LOCAL_API_BASE}/transactions`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => []),
+      fetch(`${LOCAL_API_BASE}/products`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => []),
+      fetch(`${LOCAL_API_BASE}/workers/all`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => []),
+      fetch(`${LOCAL_API_BASE}/settings`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
+      fetch(`${CLOUD_API_BASE}/transactions`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => []),
+    ]);
+
+    const cloudBillSet = new Set((cloudTxs || []).map((t) => t.billNo));
+    const localBillSet = new Set((localTxs || []).map((t) => t.billNo));
+
+    let pushedTxCount = 0;
+    let pulledTxCount = 0;
+
+    // A. Push local transactions that are missing in Cloud
+    const missingInCloud = (localTxs || []).filter((t) => !cloudBillSet.has(t.billNo));
+    for (const tx of missingInCloud) {
+      try {
+        await fetch(`${CLOUD_API_BASE}/transactions`, {
+          method: "POST",
+          headers: defaultHeaders(),
+          body: JSON.stringify(tx),
+        });
+        pushedTxCount++;
+      } catch (err) {
+        console.warn("Failed to push tx to cloud:", tx.billNo, err);
+      }
+    }
+
+    // B. Pull any Cloud transactions that are missing in Local DB
+    const missingInLocal = (cloudTxs || []).filter((t) => !localBillSet.has(t.billNo));
+    for (const tx of missingInLocal) {
+      try {
+        await fetch(`${LOCAL_API_BASE}/transactions`, {
+          method: "POST",
+          headers: defaultHeaders(),
+          body: JSON.stringify(tx),
+        });
+        pulledTxCount++;
+      } catch (err) {
+        console.warn("Failed to pull tx from cloud:", tx.billNo, err);
+      }
+    }
+
+    // C. Replicate Local Products to Cloud
+    if (Array.isArray(localProds) && localProds.length > 0) {
+      for (const prod of localProds) {
+        try {
+          await fetch(`${CLOUD_API_BASE}/products`, {
+            method: "POST",
+            headers: defaultHeaders(),
+            body: JSON.stringify(prod),
+          });
+        } catch (e) {}
+      }
+    }
+
+    // D. Replicate Local Workers to Cloud
+    if (Array.isArray(localWorkers) && localWorkers.length > 0) {
+      for (const worker of localWorkers) {
+        try {
+          await fetch(`${CLOUD_API_BASE}/workers`, {
+            method: "POST",
+            headers: defaultHeaders(),
+            body: JSON.stringify(worker),
+          });
+        } catch (e) {}
+      }
+    }
+
+    // E. Replicate Local Settings to Cloud
+    if (localSettings) {
+      try {
+        await fetch(`${CLOUD_API_BASE}/settings`, {
+          method: "POST",
+          headers: defaultHeaders(),
+          body: JSON.stringify(localSettings),
+        });
+      } catch (e) {}
+    }
+
+    const totalBills = (localTxs || []).length + pulledTxCount;
+    return {
+      success: true,
+      isLocal: true,
+      pushedTxCount,
+      pulledTxCount,
+      totalTxs: totalBills,
+      message:
+        pushedTxCount > 0
+          ? `☁️ Live Cloud Synced: ${pushedTxCount} new bill${pushedTxCount === 1 ? "" : "s"} uploaded to GitHub Pages!`
+          : `☁️ Live Cloud Synced: All ${totalBills} bills & inventory are up-to-date on GitHub Pages!`,
+    };
+  } catch (error) {
+    console.error("performFullCloudSync error:", error);
+    return {
+      success: false,
+      isLocal,
+      error: error.message,
+      message: "⚠️ Cloud sync error. Using local database.",
+    };
+  }
+}
+
+// ── PRODUCTS API ─────────────────────────────────────────
 export async function fetchProducts() {
   try {
     const controller = new AbortController();
@@ -127,13 +294,32 @@ export async function saveProduct(product) {
       headers: defaultHeaders(),
       body: JSON.stringify(product),
     });
-    return await res.json();
+    const data = await res.json();
+    // Replicate to cloud in background if running locally
+    replicateToCloud("/products", "POST", product);
+    return data;
   } catch (e) {
     console.error("Error saving product via API", e);
     return null;
   }
 }
 
+export async function deleteProduct(id) {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/products/${id}`, {
+      method: "DELETE",
+      headers: defaultHeaders(),
+    });
+    const data = await res.json();
+    replicateToCloud(`/products/${id}`, "DELETE");
+    return data;
+  } catch (e) {
+    console.error("Error deleting product", e);
+    return null;
+  }
+}
+
+// ── BILL NUMBER API ──────────────────────────────────────
 export async function fetchNextBillNumber() {
   try {
     const controller = new AbortController();
@@ -147,11 +333,12 @@ export async function fetchNextBillNumber() {
     const data = await res.json();
     return data.billNo;
   } catch (e) {
-    console.warn("Backend unavailable, using random fallback bill number", e);
+    console.warn("Backend unavailable, using fallback bill number", e);
     return null;
   }
 }
 
+// ── TRANSACTIONS / SALES API ──────────────────────────────
 export async function processSale(transaction) {
   try {
     const controller = new AbortController();
@@ -170,9 +357,16 @@ export async function processSale(transaction) {
       }
       throw new Error(`HTTP ${res.status}: ${errJson?.error || "Error"}`);
     }
-    return await res.json();
+    const data = await res.json();
+
+    // Replicate transaction to cloud immediately in background
+    replicateToCloud("/transactions", "POST", transaction);
+
+    return data;
   } catch (e) {
     console.error("Error processing sale via API", e);
+    // Queue transaction for offline sync
+    enqueueOfflineTransaction(transaction);
     return null;
   }
 }
@@ -194,6 +388,7 @@ export async function fetchTransactions() {
   }
 }
 
+// ── SETTINGS API ─────────────────────────────────────────
 export async function fetchSettings() {
   try {
     const controller = new AbortController();
@@ -218,21 +413,26 @@ export async function saveSettings(settings) {
       headers: defaultHeaders(),
       body: JSON.stringify(settings),
     });
-    return await res.json();
+    const data = await res.json();
+    replicateToCloud("/settings", "POST", settings);
+    return data;
   } catch (e) {
     console.error("Error saving settings via API", e);
     return null;
   }
 }
 
+// ── TRANSACTION STATUS MUTATIONS (CANCEL, RETURN, SETTLE) ──
 export async function cancelTransaction(billNo, id) {
   try {
-    const res = await fetch(`${API_BASE}/transactions/cancel`, {
+    const res = await fetch(`${getApiBaseUrl()}/transactions/cancel`, {
       method: "POST",
       headers: defaultHeaders(),
       body: JSON.stringify({ billNo, id }),
     });
-    return await res.json();
+    const data = await res.json();
+    replicateToCloud("/transactions/cancel", "POST", { billNo, id });
+    return data;
   } catch (e) {
     console.error("Error cancelling transaction", e);
     return null;
@@ -241,12 +441,14 @@ export async function cancelTransaction(billNo, id) {
 
 export async function uncancelTransaction(billNo, id) {
   try {
-    const res = await fetch(`${API_BASE}/transactions/uncancel`, {
+    const res = await fetch(`${getApiBaseUrl()}/transactions/uncancel`, {
       method: "POST",
       headers: defaultHeaders(),
       body: JSON.stringify({ billNo, id }),
     });
-    return await res.json();
+    const data = await res.json();
+    replicateToCloud("/transactions/uncancel", "POST", { billNo, id });
+    return data;
   } catch (e) {
     console.error("Error uncancelling transaction", e);
     return null;
@@ -255,12 +457,15 @@ export async function uncancelTransaction(billNo, id) {
 
 export async function returnTransaction(billNo, returnedItems, workerName, refundMode = "CASH", upiRefundRef = "", originalPaymentMode = "", refundTotal = 0) {
   try {
+    const body = { billNo, returnedItems, workerName, refundMode, upiRefundRef, originalPaymentMode, refundTotal };
     const res = await fetch(`${getApiBaseUrl()}/transactions/return`, {
       method: "POST",
       headers: defaultHeaders(),
-      body: JSON.stringify({ billNo, returnedItems, workerName, refundMode, upiRefundRef, originalPaymentMode, refundTotal }),
+      body: JSON.stringify(body),
     });
-    return await res.json();
+    const data = await res.json();
+    replicateToCloud("/transactions/return", "POST", body);
+    return data;
   } catch (e) {
     console.error("Error returning transaction", e);
     return null;
@@ -269,12 +474,15 @@ export async function returnTransaction(billNo, returnedItems, workerName, refun
 
 export async function settlePendingTransaction(billNo, id, amountPaid, paymentMode, settledBy) {
   try {
+    const body = { billNo, id, amountPaid, paymentMode, settledBy };
     const res = await fetch(`${getApiBaseUrl()}/transactions/settle`, {
       method: "POST",
       headers: defaultHeaders(),
-      body: JSON.stringify({ billNo, id, amountPaid, paymentMode, settledBy }),
+      body: JSON.stringify(body),
     });
-    return await res.json();
+    const data = await res.json();
+    replicateToCloud("/transactions/settle", "POST", body);
+    return data;
   } catch (e) {
     console.error("Error settling transaction", e);
     return null;
@@ -295,6 +503,7 @@ export async function incrementPrintCount(id, billNo) {
   }
 }
 
+// ── WORKERS API ──────────────────────────────────────────
 export async function fetchWorkers() {
   try {
     const res = await fetch(`${getApiBaseUrl()}/workers/all`, {
@@ -310,12 +519,14 @@ export async function fetchWorkers() {
 
 export async function saveWorker(worker) {
   try {
-    const res = await fetch(`${API_BASE}/workers`, {
+    const res = await fetch(`${getApiBaseUrl()}/workers`, {
       method: "POST",
       headers: defaultHeaders(),
       body: JSON.stringify(worker),
     });
-    return await res.json();
+    const data = await res.json();
+    replicateToCloud("/workers", "POST", worker);
+    return data;
   } catch (e) {
     console.error("Error saving worker", e);
     return null;
@@ -324,11 +535,13 @@ export async function saveWorker(worker) {
 
 export async function deleteWorker(id) {
   try {
-    const res = await fetch(`${API_BASE}/workers/${id}`, {
+    const res = await fetch(`${getApiBaseUrl()}/workers/${id}`, {
       method: "DELETE",
       headers: defaultHeaders(),
     });
-    return await res.json();
+    const data = await res.json();
+    replicateToCloud(`/workers/${id}`, "DELETE");
+    return data;
   } catch (e) {
     console.error("Error deleting worker", e);
     return null;
@@ -337,7 +550,7 @@ export async function deleteWorker(id) {
 
 export async function loginWorker(username, password) {
   try {
-    const res = await fetch(`${API_BASE}/workers/login`, {
+    const res = await fetch(`${getApiBaseUrl()}/workers/login`, {
       method: "POST",
       headers: defaultHeaders(),
       body: JSON.stringify({ username, password }),
@@ -351,18 +564,20 @@ export async function loginWorker(username, password) {
 
 export async function factoryReset() {
   try {
-    const res = await fetch(`${API_BASE}/factory-reset`, {
+    const res = await fetch(`${getApiBaseUrl()}/factory-reset`, {
       method: "POST",
       headers: defaultHeaders(),
     });
-    return await res.json();
+    const data = await res.json();
+    replicateToCloud("/factory-reset", "POST");
+    return data;
   } catch (e) {
     console.error("Error performing factory reset", e);
     return null;
   }
 }
 
-// ── THERMAL PRINTER API FUNCTIONS ───────────────────
+// ── THERMAL PRINTER HARDWARE API ─────────────────────────
 export async function getThermalPrinterStatus() {
   try {
     const res = await fetch(`${PRINTER_API_BASE}/thermal-printer/status`, {

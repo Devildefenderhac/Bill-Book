@@ -122,12 +122,18 @@ export default function Header({
 
 
           <button
-            className={`nav-tab-btn mobile-only-tab printer-btn ${printerConnected ? "connected" : ""}`}
+            className={`nav-tab-btn printer-btn ${printerConnected ? "connected" : ""}`}
             onClick={() => { onTogglePrinter(); setMobileMenuOpen(false); }}
-            style={{ color: printerConnected ? "var(--accent-emerald)" : "#f87171" }}
+            style={{
+              borderColor: printerConnected ? "rgba(16, 185, 129, 0.4)" : "rgba(244, 63, 94, 0.3)",
+              background: printerConnected ? "rgba(16, 185, 129, 0.12)" : "rgba(244, 63, 94, 0.08)",
+              color: printerConnected ? "#34d399" : "#f87171",
+              fontWeight: "700"
+            }}
+            title={printerConnected ? "Thermal Printer is Connected & Ready" : "Click to Connect USB Thermal Printer"}
           >
-            <Printer size={16} />
-            <span>{printerConnected ? "Printer Ready" : "Connect Printer"}</span>
+            <Printer size={16} color={printerConnected ? "#34d399" : "#f87171"} />
+            <span>{printerConnected ? "Printer Ready 🟢" : "Connect Printer 🖨️"}</span>
           </button>
 
           {isOwner && (

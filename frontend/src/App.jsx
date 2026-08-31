@@ -77,51 +77,53 @@ export default function App() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
 
-  // Thermal Printer state
+  // Physical Thermal Printer state
   const [printerStatus, setPrinterStatus] = useState({ connected: false, printerName: "" });
 
   // Check thermal printer connection status
   const checkPrinterStatus = async () => {
     const status = await getThermalPrinterStatus();
-    if (status) {
-      setPrinterStatus({
-        connected: !!status.connected,
-        printerName: status.printerName || "",
-      });
-    }
+    setPrinterStatus({
+      connected: !!(status && status.connected),
+      printerName: (status && status.connected && (status.model || status.printerName)) ? (status.model || status.printerName) : "",
+    });
   };
 
-  // Toggle Printer connection (Connect / Disconnect)
+  // Toggle Physical Printer connection (Connect / Disconnect)
   const handleTogglePrinter = async () => {
     if (printerStatus.connected) {
-      const res = await disconnectThermalPrinter();
+      try {
+        await disconnectThermalPrinter();
+      } catch (e) {}
       setPrinterStatus({ connected: false, printerName: "" });
-      alert("🔌 Thermal printer disconnected.");
     } else {
-      const res = await connectThermalPrinter();
-      if (res && res.success) {
-        setPrinterStatus({ connected: true, printerName: res.printer || "Thermal Printer" });
-        alert(`✅ Thermal Printer Connected Successfully!\nPrinter: ${res.printer || "BT-58D Thermal Printer"}`);
-      } else {
-        alert(`❌ Could not connect printer:\n${res?.error || "Printer not found. Make sure BT-58D is powered on and connected via USB."}`);
+      try {
+        const res = await connectThermalPrinter();
+        if (res && res.success) {
+          setPrinterStatus({ connected: true, printerName: res.printer || "POS Thermal Printer" });
+          alert(`✅ Thermal Printer Connected!\nPrinter: ${res.printer || "USB ESC/POS Printer"}`);
+        } else {
+          alert(`❌ Printer not detected:\n${res?.error || "Please check USB cable / power and try again."}`);
+        }
+      } catch (e) {
+        alert("⚠️ Thermal printer connection error. Please ensure printer service is running.");
       }
     }
   };
 
-  // Smart print function: attempts direct ESC/POS thermal printing first, falls back to system print dialog
+  // Smart print function: sends ESC/POS print commands directly to physical thermal printer, falls back to system dialog
   const triggerPrint = async (billData) => {
     setBillToPrint(billData);
+
     try {
       const res = await printToThermalPrinter(billData, settings);
       if (res && res.success) {
         return;
-      } else if (res && res.error) {
-        console.warn("Thermal print error:", res.error);
-        alert(`⚠️ POS Thermal Printer Warning:\n${res.error}\n\nOpening system print window fallback...`);
       }
     } catch (err) {
-      console.warn("Direct thermal print attempt failed, falling back to system dialog", err);
+      console.warn("Direct thermal print attempt completed or fallback", err);
     }
+
     setTimeout(() => {
       window.print();
     }, 300);

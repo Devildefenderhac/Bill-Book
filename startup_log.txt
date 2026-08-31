@@ -1,0 +1,7 @@
+19:37:54.953 - Starting BillBook POS Launcher...
+19:37:54.956 - Node command: C:\Users\Suchit Kumar\Downloads\Bill Book\runtime\node.exe
+19:37:54.956 - Server JS path: C:\Users\Suchit Kumar\Downloads\Bill Book\backend\server.js
+19:37:54.969 - Backend process started (PID: 9080)
+19:37:55.001 - Server ready after 500ms
+19:37:55.002 - Launching App mode browser: C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe with args: --app=http://127.0.0.1:5000 --window-size=1280,800 --no-first-run --no-default-browser-check
+19:37:55.006 - Edge app frame launched cleanly.

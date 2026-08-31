@@ -1,0 +1,42 @@
+name: CD - Build Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows-exe:
+    name: Package Windows POS Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Root Dependencies
+        run: npm install
+
+      - name: Install Frontend Dependencies
+        run: npm --prefix frontend install
+
+      - name: Build Frontend (Vite)
+        run: npm run build:frontend
+
+      - name: Package NSIS Windows Installer
+        env:
+          CI: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win nsis --publish never
+
+      - name: Upload Windows Installer (.exe) Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BillBook-POS-Windows-Installer
+          path: dist-installer/*.exe

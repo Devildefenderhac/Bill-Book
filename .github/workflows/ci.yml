@@ -1,0 +1,34 @@
+name: CI - Build and Verification
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  validate-project:
+    name: Test & Build Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Root Dependencies
+        run: npm install
+
+      - name: Install Frontend Dependencies
+        run: npm --prefix frontend install
+
+      - name: Install Backend Dependencies
+        run: npm --prefix backend install
+
+      - name: Build Frontend (Vite)
+        run: npm run build:frontend

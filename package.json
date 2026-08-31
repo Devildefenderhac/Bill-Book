@@ -1,0 +1,47 @@
+{
+  "name": "clothing-mall-pos",
+  "private": true,
+  "version": "1.0.0",
+  "author": "Suchit Kumar",
+  "description": "Full-Stack Windows Clothing Mall POS System",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "start:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "desktop": "npx electron electron/main.cjs",
+    "backend": "npm --prefix backend run dev",
+    "serve": "concurrently \"npm run backend\" \"npm start:frontend\"",
+    "dist": "npm run build:frontend && npx electron-builder --win nsis --publish never"
+  },
+  "build": {
+    "appId": "com.billbook.pos",
+    "productName": "BillBook POS",
+    "publish": null,
+    "directories": {
+      "output": "dist-installer"
+    },
+    "win": {
+      "target": "nsis",
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BillBook POS"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "asar": true,
+    "asarUnpack": []
+  },
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "concurrently": "^8.2.2"
+  }
+}

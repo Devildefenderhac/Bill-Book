@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const { encrypt, decrypt } = require('../utils/crypto');
 let bcrypt = null;
 try { bcrypt = require('bcryptjs'); } catch (e) { try { bcrypt = require('bcrypt'); } catch (e2) { } }
 
@@ -9,12 +10,12 @@ let db;
 const INITIAL_STORE_SETTINGS = {
   storeName: "ROYAL FASHION MALL",
   tagline: "Premier Clothing & Apparel Store",
-  address: "Grand Central Mall, Ground Floor, Main Road",
-  city: "New Delhi, 110001",
-  phone: "+91 98765 43210",
-  gstin: "07AAACR1234F1Z5",
-  upiId: "royalfashion@upi",
-  upiName: "Royal Fashion Mall",
+  address: "ENC::f4532596c646227dbc33e95f9f595cab:ad62b8441ec1599c59406d6a40de0d723eed49a0decd1c678f3a061e4a9ff81b400b9ab077cfe7fcadf25a8dc9315870",
+  city: "ENC::47e581ddac3eaeb7952d67a9bfb1ea6d:dc76c14a9cb573dc834086fb124f443f2ddf6fb79bea46a9fa5cfe56ecc1fcfa",
+  phone: "ENC::29c5a93a0dade776af9f2da7e1d4e846:dabff5a675d57f5b0e74ac0d716e18af",
+  gstin: "ENC::76dea13b38dd6eb8458617e8c7df044b:7b9a96ee6ae1125e7b4d43daef7dec0e",
+  upiId: "ENC::f8ad1616630cf2a59f8bcc0f9a05b25e:1a038e77e97b5c249a0d0982b1eb575e95b6b7fc8c4143552199873137a5f99d",
+  upiName: "ENC::07bcb4556aea5e2ee1612b7f3917e5a1:623a58b0eb0bb8af4b8dcd2495a9898f3671ceb686180bea2fd2657924f98a7f",
   billPrefix: "BILL-",
   receiptPaper: "80mm",
   workerName: "Cashier Counter 1",
@@ -159,8 +160,8 @@ const INITIAL_TRANSACTIONS = [
   {
     billNo: "BILL-20260718-0001",
     timestamp: new Date(Date.now() - 3600000 * 3).toISOString(),
-    customerName: "Rahul Sharma",
-    customerPhone: "9876543210",
+    customerName: "ENC::15efe0c0fe6e7851269004ee6818adbd:10557ee8f8df296271d34904792ed1d8",
+    customerPhone: "ENC::29019d632aca43b8a8ad9d4eb9e52700:185ca8406447b471e0dd433d77a3c544",
     items: [
       {
         id: "prod-001",
@@ -196,17 +197,17 @@ const INITIAL_TRANSACTIONS = [
     advanceAmount: 0,
     cashTendered: 0,
     changeReturned: 0,
-    upiRefNo: "UPI/620199283711",
+    upiRefNo: "ENC::20d96e6b28e692fec8a7a5841fd89cf1:09da363d8a492edea8fae5d6b5f292f1c581d4610350888dbea379b07da57cf2",
     cardRefNo: "",
-    workerName: "Store Owner",
+    workerName: "ENC::ce74329bfce13bc70159b8bf04d31c61:79cdeeeb8288c2f66831e0aa1aa22b8d",
     status: "COMPLETED",
     printCount: 1,
   },
   {
     billNo: "BILL-20260718-0002",
     timestamp: new Date(Date.now() - 3600000 * 1.5).toISOString(),
-    customerName: "Priya Patel",
-    customerPhone: "9812345678",
+    customerName: "ENC::2eb70bd23a02a3b708974606f282eb5b:402caba1588cc89f47ce034606801b4a",
+    customerPhone: "ENC::c217f1a3f3552c1230c35113ae82a945:91afa4541e30b1a90c81b90894c07f50",
     items: [
       {
         id: "prod-004",
@@ -232,7 +233,7 @@ const INITIAL_TRANSACTIONS = [
     changeReturned: 10.95,
     upiRefNo: "",
     cardRefNo: "",
-    workerName: "Store Owner",
+    workerName: "ENC::8edab74b69620c82da7da11bf6d694af:5d2de621a5d211376690225bb99f6fe2",
     status: "COMPLETED",
     printCount: 1,
   },
@@ -241,37 +242,37 @@ const INITIAL_TRANSACTIONS = [
 const INITIAL_WORKERS = [
   {
     id: "master-admin-01",
-    username: "devil7061",
-    // 🔒 Cryptographic bcrypt password hash
-    password: "$2b$10$R/H3DR6oo55xuzoDpPbylO77V2G5PKhLa8VetT7xP/gmJqeMSjqSi",
-    name: "Devil Master Admin",
-    phone: "ENC::38c5f23cdc1d1afae8498d58328ad38b:d2c89ab72c2a1be1cb2ef9505ab3e78d",
-    role: "master_admin",
-    counter: "Master Dashboard",
+    username: "ENC::cf935dd8afea0282b62c7316e8104cea:8700e61482bb45123d7dc7f19ac5442c",
+    // 🔒 AES-256-CBC Encrypted Password
+    password: "ENC::b408b95fc22a3cf9d5def6cb6f83ff59:17d4264c7d4af0349fb7be8498e6e259",
+    name: "ENC::499f1a335cf196acdc498e0fdf4d0076:3da99f759235cbe258dc4e7d63b6e06e7dc899557180067f5648259b715571bc",
+    phone: "ENC::ded381ea58ec2f371de3f942f488dd03:63b0b3c80a5701ac741d6430e239c6cd",
+    role: "ENC::d8beeca9d3549ec9cf3aa03773972960:d9999b566eb35214408af7f0b588037c",
+    counter: "ENC::4d020b060df0410fbe02ab2f025c1f8d:b64b723ce80f39168706ce637b23e687fbbbbf0db8cbb36e7e48a22b62c24c38",
     canCancelBills: 1,
     canAccessMarketing: 1,
   },
   {
     id: "worker-01",
-    username: "yankit10",
-    // 🔒 Cryptographic bcrypt password hash
-    password: "$2b$10$De/TVfp8EyQDq1BVP5OpQeDEpnj7uNKS668z9bqizkI5SSZktiQsO",
-    name: "Yankit",
-    phone: "ENC::256a2b94b733b47ee0be29860b7ed865:b7c6ccbd4c94753bf0b746e3830935ff",
-    role: "Cashier",
-    counter: "1",
+    username: "ENC::04162eff97a7ded7f69d45a36cc6e1d9:f93ed40983f013751dc0a3436de72a9a",
+    // 🔒 AES-256-CBC Encrypted Password
+    password: "ENC::fe0452298d39e96774a4c1b803db4955:ea569f02ac38d1b33a0a24e11f719fab",
+    name: "ENC::39e6fff0fbbb41f37ee19d0c237197f6:bdbe41bb9985a42a932403e7dd9a5770",
+    phone: "ENC::d7ad87234bb05e22e3553a4bb8dee563:4f2f28a33bda5ca70c5f6fc36ccf9441",
+    role: "ENC::6fe2fca595d1cd9dfacc95735e6f4f94:77fb9b36174a2d98d775817064ce3ff1",
+    counter: "ENC::fc76a8af043407389266955b6437d945:713ccca44382836c71da1171efde3d5d",
     canCancelBills: 1,
     canAccessMarketing: 1,
   },
   {
     id: "worker-02",
-    username: "suchit10",
-    // 🔒 Cryptographic bcrypt password hash
-    password: "$2b$10$Vuvk/A6i4nzwOSJXM64l2O8C0GH07Ll3c72V3UmozxR/TTqu63zpm",
-    name: "Suchit",
-    phone: "ENC::918e85ed0ba66fd30438bc2dccf8ae92:b3dc55ad3d14ab42bbcbbdd43351dfda",
-    role: "Admin",
-    counter: "Admin 1",
+    username: "ENC::e97d622c14e77b0447b1eb40615c5540:eb2529841a2992fee194db09331ef048",
+    // 🔒 AES-256-CBC Encrypted Password
+    password: "ENC::bd0aae5110a6e63ed8cd477a576cb64b:90517fd8f1f861c5150c7b4d27944d2d",
+    name: "ENC::4dd7eac282e30a3b2905cbdec937ab58:db98bb3a6d0cea33d0e582a6c1b938c8",
+    phone: "ENC::0482650fef23efa14f5121f645e1ab09:352eefe2fdecb98e400685cc57e156a0",
+    role: "ENC::5f3e8bc8b610ef5952a62452ee25bc3a:b4b8741068eb37819e4527a7ec9c01a2",
+    counter: "ENC::9926831ed2a99c41cc0498266e48debb:de5b8c3d88733883ce1b42e53722a1b1",
     canCancelBills: 1,
     canAccessMarketing: 1,
   },
@@ -366,7 +367,7 @@ function initDb() {
       )
     `);
 
-    // Seed workers only if empty — hash master admin password before storing
+    // Seed workers only if empty
     db.get('SELECT COUNT(*) as count FROM workers', [], (err, row) => {
       if (!err && row && row.count === 0) {
         const stmt = db.prepare(`
@@ -374,15 +375,20 @@ function initDb() {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         INITIAL_WORKERS.forEach((w) => {
-          // Hash password with bcrypt before persisting to DB
-          let hashedPass = w.password;
-          if (bcrypt && w.password && !w.password.startsWith('$2')) {
-            try { hashedPass = bcrypt.hashSync(w.password, 10); } catch (e) { }
-          }
-          stmt.run([w.id, w.username, hashedPass, w.name, w.phone, w.role, w.counter, w.canCancelBills, w.canAccessMarketing]);
+          stmt.run([
+            w.id,
+            decrypt(w.username) || w.username,
+            w.password,
+            decrypt(w.name) || w.name,
+            w.phone,
+            decrypt(w.role) || w.role,
+            decrypt(w.counter) || w.counter,
+            w.canCancelBills,
+            w.canAccessMarketing
+          ]);
         });
         stmt.finalize();
-        console.log('✅ Seeded master admin with hashed password');
+        console.log('✅ Seeded workers with encrypted data');
       }
     });
 
@@ -447,7 +453,7 @@ function initDb() {
           ]);
         });
         stmt.finalize();
-        console.log('✅ Seeded initial transactions');
+        console.log('✅ Seeded initial transactions with encrypted fields');
       }
     });
 

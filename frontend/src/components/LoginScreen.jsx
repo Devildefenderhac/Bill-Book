@@ -27,73 +27,82 @@ export default function LoginScreen({ onLogin, workers = [] }) {
     const cleanPass = password.trim();
 
     // 1. Authenticate against backend API if available
+    let backendChecked = false;
     try {
       const res = await loginWorker(username, password);
 
-      if (res && res.success && res.worker) {
-        setIsLoading(false);
-        const workerRole = res.worker.role || "Cashier";
-        const isMasterAdminRole = workerRole === "master_admin";
-        const isAdminRole =
-          workerRole === "Admin" ||
-          workerRole === "admin" ||
-          workerRole === "Owner" ||
-          workerRole === "owner";
+      if (res) {
+        backendChecked = true;
+        if (res.success && res.worker) {
+          setIsLoading(false);
+          const workerRole = res.worker.role || "Cashier";
+          const isMasterAdminRole = workerRole === "master_admin" || res.worker.id === "master-admin-01";
+          const isAdminRole =
+            workerRole === "Admin" ||
+            workerRole === "admin" ||
+            workerRole === "Owner" ||
+            workerRole === "owner";
 
-        onLogin({
-          role: isMasterAdminRole ? "master_admin" : isAdminRole ? "admin" : "cashier",
-          name: res.worker.name,
-          counter: res.worker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin" : "1"),
-          username: res.worker.username || cleanUser,
-          id: res.worker.id,
-          canCancelBills: res.worker.canCancelBills,
-          canAccessMarketing: res.worker.canAccessMarketing,
-        });
-        return;
+          onLogin({
+            role: isMasterAdminRole ? "master_admin" : isAdminRole ? "admin" : "cashier",
+            name: res.worker.name,
+            counter: res.worker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin" : "1"),
+            username: res.worker.username || cleanUser,
+            id: res.worker.id,
+            canCancelBills: res.worker.canCancelBills,
+            canAccessMarketing: res.worker.canAccessMarketing,
+          });
+          return;
+        } else {
+          setIsLoading(false);
+          setErrorMsg(res.message || "Invalid Account ID or Password. Please try again.");
+          return;
+        }
       }
     } catch (err) {
       console.warn("Backend API unavailable, using offline worker credentials", err);
     }
 
-    // 2. Check local/initial workers array for offline & GitHub Pages web mode
-    const decInitial = await decryptEncryptedObject(INITIAL_WORKERS);
-    const decWorkers = await decryptEncryptedObject(workers || []);
-    const combinedWorkers = [...(decInitial || []), ...(decWorkers || [])];
+    // 2. Offline fallback (only when backend is unreachable / standalone mode)
+    if (!backendChecked) {
+      const activeList = workers && workers.length > 0 ? workers : INITIAL_WORKERS;
+      const decWorkers = await decryptEncryptedObject(activeList || []);
 
-    const matchedWorker = combinedWorkers.find((w) => {
-      if (!w) return false;
-      const u = String(w.username || "").trim().toLowerCase();
-      const p = String(w.phone || "").trim().toLowerCase();
-      const id = String(w.id || "").trim().toLowerCase();
-      return u === cleanUser || p === cleanUser || id === cleanUser;
-    });
+      const matchedWorker = (decWorkers || []).find((w) => {
+        if (!w) return false;
+        const u = String(w.username || "").trim().toLowerCase();
+        const p = String(w.phone || "").trim().toLowerCase();
+        const id = String(w.id || "").trim().toLowerCase();
+        return u === cleanUser || p === cleanUser || id === cleanUser;
+      });
 
-    if (matchedWorker) {
-      const inputHash = await sha256Hex(cleanPass);
+      if (matchedWorker) {
+        const inputHash = await sha256Hex(cleanPass);
 
-      const isPassValid =
-        (matchedWorker.passwordHash && matchedWorker.passwordHash === inputHash) ||
-        (matchedWorker.legacyHash && matchedWorker.legacyHash === inputHash) ||
-        (matchedWorker.password && String(matchedWorker.password).trim() === cleanPass);
+        const isPassValid =
+          (matchedWorker.passwordHash && matchedWorker.passwordHash === inputHash) ||
+          (matchedWorker.legacyHash && matchedWorker.legacyHash === inputHash) ||
+          (matchedWorker.password && String(matchedWorker.password).trim() === cleanPass);
 
-      if (isPassValid) {
-        setIsLoading(false);
-        const isMasterAdminRole = matchedWorker.role === "master_admin";
-        const isAdminRole =
-          matchedWorker.role === "Admin" ||
-          matchedWorker.role === "admin" ||
-          matchedWorker.role === "Owner" ||
-          matchedWorker.role === "owner";
-        onLogin({
-          role: isMasterAdminRole ? "master_admin" : isAdminRole ? "admin" : "cashier",
-          name: matchedWorker.name,
-          counter: matchedWorker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin 1" : "1"),
-          username: matchedWorker.username || cleanUser,
-          id: matchedWorker.id,
-          canCancelBills: matchedWorker.canCancelBills,
-          canAccessMarketing: matchedWorker.canAccessMarketing,
-        });
-        return;
+        if (isPassValid) {
+          setIsLoading(false);
+          const isMasterAdminRole = matchedWorker.role === "master_admin" || matchedWorker.id === "master-admin-01";
+          const isAdminRole =
+            matchedWorker.role === "Admin" ||
+            matchedWorker.role === "admin" ||
+            matchedWorker.role === "Owner" ||
+            matchedWorker.role === "owner";
+          onLogin({
+            role: isMasterAdminRole ? "master_admin" : isAdminRole ? "admin" : "cashier",
+            name: matchedWorker.name,
+            counter: matchedWorker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin 1" : "1"),
+            username: matchedWorker.username || cleanUser,
+            id: matchedWorker.id,
+            canCancelBills: matchedWorker.canCancelBills,
+            canAccessMarketing: matchedWorker.canAccessMarketing,
+          });
+          return;
+        }
       }
     }
 

@@ -34,7 +34,7 @@ import { INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS, INITIAL_WORKERS } from "./dat
 import { secureLocalStorage, decryptEncryptedObject } from "./utils/storageCrypto";
 
 const DB_VERSION_KEY = "billbook_db_version";
-const CURRENT_DB_VERSION = "2026_08_31_v3";
+const CURRENT_DB_VERSION = "2026_08_31_v5_decrypted_passwords";
 
 // Automatically clear outdated browser local storage if database schema/seeds updated
 function checkAndClearOldBrowserStorage() {
@@ -152,8 +152,25 @@ export default function App() {
       try {
         const decSettings = await decryptEncryptedObject(INITIAL_STORE_SETTINGS);
         const decWorkers = await decryptEncryptedObject(INITIAL_WORKERS);
-        if (decSettings) setSettings((prev) => ({ ...decSettings, ...prev }));
-        if (decWorkers) setWorkers((prev) => (prev && prev.length > 0 ? prev : decWorkers));
+        if (decSettings) {
+          setSettings((prev) => {
+            const hasEnc = Object.values(prev || {}).some(
+              (v) => typeof v === "string" && v.startsWith("ENC::")
+            );
+            return hasEnc ? decSettings : { ...decSettings, ...prev };
+          });
+        }
+        if (decWorkers) {
+          setWorkers((prev) => {
+            const hasEnc = (prev || []).some(
+              (w) =>
+                (typeof w?.name === "string" && w.name.startsWith("ENC::")) ||
+                (typeof w?.counter === "string" && w.counter.startsWith("ENC::")) ||
+                (typeof w?.phone === "string" && w.phone.startsWith("ENC::"))
+            );
+            return !prev || prev.length === 0 || hasEnc ? decWorkers : prev;
+          });
+        }
       } catch (e) {
         console.warn("Decryption on mount error:", e);
       }
@@ -177,21 +194,39 @@ export default function App() {
   };
 
   const handleSaveWorker = async (worker) => {
-    const res = await saveWorker(worker);
-    if (res && res.success) {
-      setWorkers((prev) => {
-        const exists = prev.find((w) => w.id === res.worker.id);
-        if (exists) return prev.map((w) => (w.id === res.worker.id ? res.worker : w));
-        return [...prev, res.worker];
-      });
+    let workerToSave = { ...worker };
+    if (worker.password && String(worker.password).trim() !== "") {
+      try {
+        const buffer = new TextEncoder().encode(String(worker.password).trim());
+        const hashBuffer = await window.crypto.subtle.digest("SHA-256", buffer);
+        workerToSave.passwordHash = Array.from(new Uint8Array(hashBuffer))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      } catch (e) {}
     }
+
+    const res = await saveWorker(workerToSave);
+    const finalWorker = res && res.success && res.worker ? { ...workerToSave, ...res.worker } : workerToSave;
+
+    setWorkers((prev) => {
+      const exists = (prev || []).find((w) => w.id === finalWorker.id);
+      const updated = exists
+        ? prev.map((w) => (w.id === finalWorker.id ? { ...w, ...finalWorker } : w))
+        : [...(prev || []), finalWorker];
+      secureLocalStorage.setItem("billbook_workers", updated);
+      return updated;
+    });
+
+    return finalWorker;
   };
 
   const handleDeleteWorker = async (id) => {
-    const res = await deleteWorker(id);
-    if (res && res.success) {
-      setWorkers((prev) => prev.filter((w) => w.id !== id));
-    }
+    await deleteWorker(id);
+    setWorkers((prev) => {
+      const updated = (prev || []).filter((w) => w.id !== id);
+      secureLocalStorage.setItem("billbook_workers", updated);
+      return updated;
+    });
   };
 
   const handleInitiatePayment = (cartSummary) => {

@@ -28,23 +28,26 @@ function hashPassword(plainText) {
   }
 }
 
-// Helper: compare password against stored (handles both bcrypt hash and legacy plaintext)
+// Helper: compare password against stored (handles AES-encrypted, bcrypt hash, and legacy plaintext)
 function comparePassword(inputPass, storedPass) {
   if (!inputPass || !storedPass) return false;
   const input = String(inputPass).trim();
   const stored = String(storedPass).trim();
 
-  // Try bcrypt comparison first (stored is a hash)
-  if (stored.startsWith('$2') && bcrypt) {
+  // If stored with AES ENC:: prefix, decrypt first
+  const decryptedStored = stored.startsWith('ENC::') ? decrypt(stored) : stored;
+
+  // Try bcrypt comparison if stored was a bcrypt hash ($2...)
+  if (decryptedStored.startsWith('$2') && bcrypt) {
     try {
-      return bcrypt.compareSync(input, stored);
+      return bcrypt.compareSync(input, decryptedStored);
     } catch (e) {
       return false;
     }
   }
 
-  // Fallback: plaintext comparison (legacy passwords not yet hashed)
-  return stored === input;
+  // Exact password match
+  return decryptedStored === input;
 }
 
 // GET all workers
@@ -52,12 +55,21 @@ router.get('/all', (req, res) => {
   const db = getDb();
   db.all('SELECT * FROM workers', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    const formatted = (rows || []).map((r) => ({
-      ...r,
-      phone: decrypt(r.phone) || r.phone,
-      canCancelBills: !!r.canCancelBills,
-      canAccessMarketing: !!r.canAccessMarketing,
-    }));
+    const formatted = (rows || []).map((r) => {
+      const decRole = decrypt(r.role) || r.role || 'Cashier';
+      const isMasterAdminRole = decRole === 'master_admin' || r.id === 'master-admin-01';
+      return {
+        ...r,
+        username: decrypt(r.username) || r.username,
+        name: decrypt(r.name) || r.name,
+        phone: decrypt(r.phone) || r.phone,
+        password: decrypt(r.password) || r.password,
+        role: isMasterAdminRole ? 'master_admin' : decRole,
+        counter: decrypt(r.counter) || r.counter || (isMasterAdminRole ? 'Master Dashboard' : 'Counter 1'),
+        canCancelBills: !!r.canCancelBills,
+        canAccessMarketing: !!r.canAccessMarketing,
+      };
+    });
     res.json(formatted);
   });
 });
@@ -80,7 +92,7 @@ router.post('/login', (req, res) => {
 
     // Find matched worker by username, phone, or id (case-insensitive)
     let matched = workersList.find((w) => {
-      const u = String(w.username || '').trim().toLowerCase();
+      const u = String(decrypt(w.username) || w.username || '').trim().toLowerCase();
       const p = String(decrypt(w.phone) || w.phone || '').trim().toLowerCase();
       const id = String(w.id || '').trim().toLowerCase();
       return u === cleanUser || p === cleanUser || id === cleanUser;
@@ -105,8 +117,8 @@ router.post('/login', (req, res) => {
       });
     }
 
-    const workerRole = matched.role || 'Cashier';
-    const isMasterAdminRole = isMasterRole || workerRole === 'master_admin';
+    const workerRole = decrypt(matched.role) || matched.role || 'Cashier';
+    const isMasterAdminRole = workerRole === 'master_admin' || matched.id === 'master-admin-01';
     const isAdminRole =
       workerRole === 'Admin' ||
       workerRole === 'admin' ||
@@ -117,11 +129,12 @@ router.post('/login', (req, res) => {
       success: true,
       worker: {
         id: matched.id,
-        username: matched.username,
-        name: matched.name,
-        phone: matched.phone,
+        username: decrypt(matched.username) || matched.username,
+        name: decrypt(matched.name) || matched.name,
+        phone: decrypt(matched.phone) || matched.phone,
+        password: decrypt(matched.password) || matched.password,
         role: isMasterAdminRole ? 'master_admin' : isAdminRole ? 'admin' : 'cashier',
-        counter: matched.counter || (isMasterAdminRole ? 'Master Dashboard' : isAdminRole ? 'Admin 1' : '1'),
+        counter: decrypt(matched.counter) || matched.counter || (isMasterAdminRole ? 'Master Dashboard' : isAdminRole ? 'Admin 1' : '1'),
         canCancelBills: !!matched.canCancelBills,
         canAccessMarketing: !!matched.canAccessMarketing,
       },
@@ -137,10 +150,10 @@ router.post('/', (req, res) => {
 
   // Determine if password was provided (non-empty string)
   const hasNewPassword = password !== undefined && password !== null && String(password).trim() !== '';
-  const finalPassword = hasNewPassword ? hashPassword(String(password).trim()) : null;
+  const finalPassword = hasNewPassword ? encrypt(String(password).trim()) : null;
 
   // Check if this worker already exists in DB — use UPDATE for existing, INSERT for new
-  db.get('SELECT id FROM workers WHERE id = ?', [workerId], (findErr, existingRow) => {
+  db.get('SELECT id, password FROM workers WHERE id = ?', [workerId], (findErr, existingRow) => {
     if (findErr) return res.status(500).json({ error: findErr.message });
 
     if (existingRow) {
@@ -177,6 +190,7 @@ router.post('/', (req, res) => {
         function (err) {
           if (err) return res.status(500).json({ error: err.message });
           console.log(`✅ Worker updated: ${username} (id: ${workerId}), password changed: ${hasNewPassword}`);
+          const storedOrUpdatedPass = hasNewPassword ? String(password).trim() : (decrypt(existingRow.password) || existingRow.password);
           res.json({
             success: true,
             worker: {
@@ -184,6 +198,7 @@ router.post('/', (req, res) => {
               username,
               name,
               phone,
+              password: storedOrUpdatedPass,
               role: role || 'cashier',
               counter: counter || (role === 'master_admin' ? 'Master Dashboard' : 'Counter 1'),
               canCancelBills: !!canCancelBills,
@@ -194,7 +209,8 @@ router.post('/', (req, res) => {
       );
     } else {
       // INSERT new worker — password is required
-      const insertPassword = finalPassword || hashPassword('1234');
+      const plainPass = hasNewPassword ? String(password).trim() : '1234';
+      const insertPassword = encrypt(plainPass);
 
       db.run(
         `INSERT INTO workers (id, username, password, name, phone, role, counter, canCancelBills, canAccessMarketing)
@@ -220,6 +236,7 @@ router.post('/', (req, res) => {
               username,
               name,
               phone,
+              password: plainPass,
               role: role || 'cashier',
               counter: counter || (role === 'master_admin' ? 'Master Dashboard' : 'Counter 1'),
               canCancelBills: !!canCancelBills,

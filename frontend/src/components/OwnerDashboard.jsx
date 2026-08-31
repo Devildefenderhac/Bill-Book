@@ -2085,17 +2085,32 @@ export default function OwnerDashboard({
                     id: MASTER_ADMIN_ID,
                     role: "master_admin",
                   };
+                  const oldUser = String(masterWorker.username || "").trim().toLowerCase();
+                  const newUser = String(masterProfileForm.username || "").trim().toLowerCase();
+                  const isUsernameChanged = !!newUser && newUser !== oldUser;
+                  const isPasswordChanged = masterProfileForm.password !== undefined && masterProfileForm.password !== null && String(masterProfileForm.password).trim() !== "";
+
                   const updatedMaster = {
                     ...masterWorker,
                     id: MASTER_ADMIN_ID,
                     role: "master_admin",
                     name: masterProfileForm.name || MASTER_ADMIN_NAME,
                     username: masterProfileForm.username || MASTER_ADMIN_USER,
-                    password: masterProfileForm.password ? masterProfileForm.password : undefined,
+                    password: isPasswordChanged ? String(masterProfileForm.password).trim() : undefined,
+                    counter: "Master Dashboard",
+                    canCancelBills: 1,
+                    canAccessMarketing: 1,
                   };
+
                   await onSaveWorker(updatedMaster);
                   setMasterProfileSaved(true);
-                  setTimeout(() => setMasterProfileSaved(false), 3000);
+
+                  if (isUsernameChanged || isPasswordChanged) {
+                    alert(`✅ Admin Master credentials successfully updated!\n\nNew Login ID / Username: ${updatedMaster.username}\n${isPasswordChanged ? "New Password: (updated securely)\n" : ""}\nYou will now be logged out. Please log in using your new credentials.`);
+                    onLogout();
+                  } else {
+                    setTimeout(() => setMasterProfileSaved(false), 3000);
+                  }
                 }}
                 style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: "12px", alignItems: "end" }}
               >

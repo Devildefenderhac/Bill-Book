@@ -11,9 +11,12 @@ function parseSettings(row) {
   if (!row) return INITIAL_STORE_SETTINGS;
   return {
     ...row,
+    address: decrypt(row.address) || row.address,
+    city: decrypt(row.city) || row.city,
     phone: decrypt(row.phone) || row.phone,
     gstin: decrypt(row.gstin) || row.gstin,
     upiId: decrypt(row.upiId) || row.upiId,
+    upiName: decrypt(row.upiName) || row.upiName,
   };
 }
 
@@ -50,12 +53,12 @@ router.post('/', (req, res) => {
     [
       storeName,
       tagline,
-      address,
-      city,
+      encrypt(address || ''),
+      encrypt(city || ''),
       encrypt(phone || ''),
       encrypt(gstin || ''),
       encrypt(upiId || ''),
-      upiName,
+      encrypt(upiName || ''),
       billPrefix,
       receiptPaper,
       workerName,

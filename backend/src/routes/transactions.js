@@ -59,68 +59,119 @@ router.get('/', (req, res) => {
   });
 });
 
-// PROCESS new transaction / sale
+// PROCESS new transaction / sale (with automatic unique billNo assignment & deduplication)
 router.post('/', (req, res) => {
   const tx = req.body;
   const db = getDb();
 
-  const itemsJson = JSON.stringify(tx.items || []);
-  const stmt = db.prepare(`
-    INSERT INTO transactions (
-      billNo, timestamp, customerName, customerPhone, items,
-      subtotal, discount, grandTotal, paymentMode, paymentStatus,
-      pendingAmount, advanceAmount, cashTendered, changeReturned,
-      upiRefNo, cardRefNo, workerName, status, printCount
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-  `);
+  const today = new Date();
+  const d = String(today.getDate()).padStart(2, '0');
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const y = today.getFullYear();
+  const dateStr = `${d}${m}${y}`;
 
-  stmt.run(
-    [
-      tx.billNo,
-      tx.timestamp || new Date().toISOString(),
-      encrypt(tx.customerName || 'Walk-in Customer'),
-      encrypt(tx.customerPhone || ''),
-      itemsJson,
-      Number(tx.subtotal) || 0,
-      Number(tx.discount) || 0,
-      Number(tx.grandTotal) || 0,
-      tx.paymentMode || 'CASH',
-      tx.paymentStatus || 'PAID',
-      Number(tx.pendingAmount) || 0,
-      Number(tx.advanceAmount) || 0,
-      Number(tx.cashTendered) || 0,
-      Number(tx.changeReturned) || 0,
-      encrypt(tx.upiRefNo || ''),
-      encrypt(tx.cardRefNo || ''),
-      tx.workerName || 'Store Owner',
-      tx.status || 'COMPLETED',
-    ],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
+  db.get('SELECT billPrefix FROM settings WHERE id = 1', [], (sErr, sRow) => {
+    const prefix = (sRow && sRow.billPrefix) || 'BILL-';
+    const pattern = `${prefix}${dateStr}-%`;
 
-      // Deduct stock for sold items
-      if (Array.isArray(tx.items)) {
-        tx.items.forEach((item) => {
-          if (item.id && item.quantity) {
-            db.run('UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?', [Number(item.quantity) || 1, item.id]);
+    db.all('SELECT id, billNo, timestamp FROM transactions WHERE billNo LIKE ?', [pattern], (allErr, rows) => {
+      let finalBillNo = tx.billNo;
+      let maxSeq = 0;
+      (rows || []).forEach((row) => {
+        if (row.billNo) {
+          const parts = row.billNo.split('-');
+          const num = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
           }
-        });
+        }
+      });
+
+      const existingMatch = (rows || []).find((r) => r.billNo === finalBillNo);
+
+      // If billNo is empty or already taken by another transaction, generate next unique sequence
+      if (!finalBillNo || (existingMatch && existingMatch.timestamp !== tx.timestamp)) {
+        maxSeq++;
+        finalBillNo = `${prefix}${dateStr}-${String(maxSeq).padStart(4, '0')}`;
       }
 
-      // Return updated products and transactions
-      db.all('SELECT * FROM products ORDER BY created_at DESC', [], (pErr, prodRows) => {
-        db.all('SELECT * FROM transactions ORDER BY timestamp DESC', [], (tErr, txRows) => {
-          const prods = (prodRows || []).map((r) => {
-            let sizes = [];
-            try { sizes = JSON.parse(r.sizes); } catch (e) {}
-            return { ...r, sizes };
+      const itemsJson = JSON.stringify(tx.items || []);
+      const returnDetailsJson = tx.returnDetails ? JSON.stringify(tx.returnDetails) : null;
+      const settlementDetailsJson = tx.settlementDetails ? JSON.stringify(tx.settlementDetails) : null;
+
+      // Upsert transaction
+      db.run(
+        `INSERT INTO transactions (
+          billNo, timestamp, customerName, customerPhone, items,
+          subtotal, discount, grandTotal, paymentMode, paymentStatus,
+          pendingAmount, advanceAmount, cashTendered, changeReturned,
+          upiRefNo, cardRefNo, workerName, status, printCount, returnDetails, settlementDetails
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(billNo) DO UPDATE SET
+          status = excluded.status,
+          items = excluded.items,
+          subtotal = excluded.subtotal,
+          discount = excluded.discount,
+          grandTotal = excluded.grandTotal,
+          paymentMode = excluded.paymentMode,
+          paymentStatus = excluded.paymentStatus,
+          pendingAmount = excluded.pendingAmount,
+          advanceAmount = excluded.advanceAmount,
+          cashTendered = excluded.cashTendered,
+          changeReturned = excluded.changeReturned,
+          returnDetails = COALESCE(excluded.returnDetails, transactions.returnDetails),
+          settlementDetails = COALESCE(excluded.settlementDetails, transactions.settlementDetails)`,
+        [
+          finalBillNo,
+          tx.timestamp || new Date().toISOString(),
+          encrypt(tx.customerName || 'Walk-in Customer'),
+          encrypt(tx.customerPhone || ''),
+          itemsJson,
+          Number(tx.subtotal) || 0,
+          Number(tx.discount) || 0,
+          Number(tx.grandTotal) || 0,
+          tx.paymentMode || 'CASH',
+          tx.paymentStatus || 'PAID',
+          Number(tx.pendingAmount) || 0,
+          Number(tx.advanceAmount) || 0,
+          Number(tx.cashTendered) || 0,
+          Number(tx.changeReturned) || 0,
+          encrypt(tx.upiRefNo || ''),
+          encrypt(tx.cardRefNo || ''),
+          tx.workerName || 'Store Owner',
+          tx.status || 'COMPLETED',
+          Number(tx.printCount) || 1,
+          returnDetailsJson,
+          settlementDetailsJson,
+        ],
+        function (err) {
+          if (err) return res.status(500).json({ error: err.message });
+
+          // Deduct stock for sold items
+          if (Array.isArray(tx.items)) {
+            tx.items.forEach((item) => {
+              if (item.id && (item.qty || item.quantity)) {
+                db.run('UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?', [Number(item.qty || item.quantity) || 1, item.id]);
+              }
+            });
+          }
+
+          // Return updated products and transactions
+          db.all('SELECT * FROM products ORDER BY created_at DESC', [], (pErr, prodRows) => {
+            db.all('SELECT * FROM transactions ORDER BY timestamp DESC', [], (tErr, txRows) => {
+              const prods = (prodRows || []).map((r) => {
+                let sizes = [];
+                try { sizes = JSON.parse(r.sizes); } catch (e) {}
+                return { ...r, sizes };
+              });
+              const txs = (txRows || []).map(parseTx);
+              res.json({ success: true, billNo: finalBillNo, products: prods, transactions: txs });
+            });
           });
-          const txs = (txRows || []).map(parseTx);
-          res.json({ success: true, products: prods, transactions: txs });
-        });
-      });
-    }
-  );
+        }
+      );
+    });
+  });
 });
 
 // CANCEL transaction

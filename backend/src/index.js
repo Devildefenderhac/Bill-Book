@@ -43,8 +43,18 @@ app.get('/api/next-bill-number', verifyApiKey, (req, res) => {
     const prefix = (sRow && sRow.billPrefix) || 'BILL-';
     const pattern = `${prefix}${dateStr}-%`;
 
-    db.get('SELECT COUNT(*) as count FROM transactions WHERE billNo LIKE ?', [pattern], (err, row) => {
-      const seq = ((row && row.count) || 0) + 1;
+    db.all('SELECT billNo FROM transactions WHERE billNo LIKE ?', [pattern], (err, rows) => {
+      let maxSeq = 0;
+      (rows || []).forEach((row) => {
+        if (row.billNo) {
+          const parts = row.billNo.split('-');
+          const num = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
+      });
+      const seq = maxSeq + 1;
       const billNo = `${prefix}${dateStr}-${String(seq).padStart(4, '0')}`;
       res.json({ billNo });
     });

@@ -451,8 +451,21 @@ export default function App() {
       const d = String(today.getDate()).padStart(2, "0");
       const m = String(today.getMonth() + 1).padStart(2, "0");
       const y = today.getFullYear();
-      const count = (transactions.length + 2).toString().padStart(4, "0");
-      setCurrentBillNo(`BILL-${d}${m}${y}-${count}`);
+      const dateStr = `${d}${m}${y}`;
+      const prefix = settings?.billPrefix || "BILL-";
+      const pattern = `${prefix}${dateStr}-`;
+
+      let maxSeq = 0;
+      (transactions || []).forEach((t) => {
+        if (t?.billNo && t.billNo.startsWith(pattern)) {
+          const parts = t.billNo.split("-");
+          const num = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
+      });
+      setCurrentBillNo(`${prefix}${dateStr}-${String(maxSeq + 1).padStart(4, "0")}`);
     }
   };
 

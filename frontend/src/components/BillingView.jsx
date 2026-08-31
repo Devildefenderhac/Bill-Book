@@ -243,35 +243,10 @@ export default function BillingView({
 
   const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
 
-  const myHistory = transactions.filter((t) => {
-    // 1. Show Today's Received Sales & History only (1-Day Sales)
-    if (!t.timestamp) return false;
+  const myHistory = (transactions || []).filter((t) => {
+    if (!t || !t.timestamp) return false;
     const txDate = new Date(t.timestamp).toLocaleDateString("en-CA");
-    if (txDate !== todayStr) return false;
-
-    if (!currentUser) return true;
-    const curName = (currentUser.name || "").toLowerCase().trim();
-    const curUser = (currentUser.username || "").toLowerCase().trim();
-    const tWorker = (t.workerName || "").toLowerCase().trim();
-
-    if (tWorker && (tWorker === curName || tWorker === curUser)) return true;
-
-    const isUserAdmin =
-      currentUser.role === "owner" ||
-      currentUser.role === "admin" ||
-      currentUser.role === "master_admin";
-
-    if (isUserAdmin) {
-      if (
-        !tWorker ||
-        tWorker.includes("owner") ||
-        tWorker.includes("admin") ||
-        tWorker === "store owner"
-      ) {
-        return true;
-      }
-    }
-    return false;
+    return txDate === todayStr;
   });
 
   const todayReceivedAmount = myHistory.reduce(

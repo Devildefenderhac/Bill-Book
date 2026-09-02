@@ -19,15 +19,27 @@ export default function WorkerHistoryModal({ isOpen, onClose, worker, transactio
   // Filter transactions for this specific worker/admin
   const workerNameClean = (worker.name || "").toLowerCase().trim();
   const workerUserClean = (worker.username || "").toLowerCase().trim();
+  const workerCounterClean = (worker.counter || "").toLowerCase().trim();
 
   const workerTransactions = transactions.filter((t) => {
     const tWorker = (t.workerName || "").toLowerCase().trim();
+    const tCounter = (t.counter || "").toLowerCase().trim();
+
     if (!tWorker) {
-      return worker.role === "Admin" || worker.role === "Owner" || worker.id === "admin-master-1";
+      return worker.role === "Admin" || worker.role === "Owner" || worker.role === "master_admin" || worker.id === "admin-master-1";
     }
-    return tWorker === workerNameClean || tWorker === workerUserClean ||
-      (worker.role === "Admin" && (tWorker.includes("admin") || tWorker.includes("owner")));
+
+    if (worker.role === "master_admin" || worker.role === "admin" || worker.role === "Admin" || worker.role === "Owner" || worker.role === "owner") {
+      return tWorker === workerNameClean || tWorker === workerUserClean || tWorker.includes("admin") || tWorker.includes("owner");
+    }
+
+    return (
+      tWorker === workerNameClean ||
+      tWorker === workerUserClean ||
+      (workerCounterClean && (tCounter === workerCounterClean || tCounter === `counter ${workerCounterClean}`))
+    );
   });
+
 
   // Build settlement entries made by this worker (from other workers' bills)
   const settlementsCollected = [];

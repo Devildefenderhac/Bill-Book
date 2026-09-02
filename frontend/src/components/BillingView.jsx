@@ -243,11 +243,35 @@ export default function BillingView({
 
   const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
 
+  const isCurrentAdmin =
+    currentUser?.role === "master_admin" ||
+    currentUser?.role === "owner" ||
+    currentUser?.role === "Admin" ||
+    currentUser?.role === "admin";
+
+  const currentWorkerName = (currentUser?.name || "").toLowerCase().trim();
+  const currentWorkerUser = (currentUser?.username || "").toLowerCase().trim();
+  const currentWorkerCounter = (currentUser?.counter || "").toLowerCase().trim();
+
+  // Cashier Counter Isolation: Cashiers ONLY see their own bills & shift amounts
   const myHistory = (transactions || []).filter((t) => {
     if (!t || !t.timestamp) return false;
     const txDate = new Date(t.timestamp).toLocaleDateString("en-CA");
-    return txDate === todayStr;
+    if (txDate !== todayStr) return false;
+
+    // Admins have full mall visibility
+    if (isCurrentAdmin) return true;
+
+    // Cashiers only see their own counter's bills
+    const tWorker = (t.workerName || "").toLowerCase().trim();
+    const tCounter = (t.counter || "").toLowerCase().trim();
+
+    return (
+      (tWorker && (tWorker === currentWorkerName || tWorker === currentWorkerUser)) ||
+      (tCounter && currentWorkerCounter && (tCounter === currentWorkerCounter || tCounter === `counter ${currentWorkerCounter}`))
+    );
   });
+
 
   const todayReceivedAmount = myHistory.reduce(
     (sum, t) => sum + (t.status === "CANCELLED" ? 0 : t.grandTotal || 0),

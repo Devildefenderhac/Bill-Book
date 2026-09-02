@@ -22,7 +22,7 @@ import {
 import ReturnModal from "./ReturnModal";
 import PendingPaymentsView from "./PendingPaymentsView";
 import ViewBillModal from "./ViewBillModal";
-import { getEffectiveTxStatus } from "../utils/api";
+import { getEffectiveTxStatus, getTxRefundAmount } from "../utils/api";
 
 export default function BillingView({
   products = [],
@@ -735,8 +735,39 @@ export default function BillingView({
                         )}
                       </div>
                     </td>
-                    <td style={{ fontWeight: "700", color: tx.type === 'RETURN' ? "var(--accent-rose)" : "var(--accent-emerald)" }}>
-                      {tx.type === 'RETURN' ? '-' : ''}₹{Math.abs(tx.grandTotal).toFixed(2)}
+                    <td>
+                      {(() => {
+                        const effectiveStatus = getEffectiveTxStatus(tx);
+                        const refundAmt = getTxRefundAmount(tx);
+
+                        if (effectiveStatus === "RETURNED" || tx.type === "RETURN") {
+                          return (
+                            <div>
+                              <div style={{ fontWeight: "700", color: "var(--accent-rose)" }}>
+                                -₹{(refundAmt || Math.abs(tx.grandTotal)).toFixed(2)}
+                              </div>
+                              <div style={{ fontSize: "10px", color: "var(--accent-rose)", fontWeight: "600" }}>Total Refund</div>
+                            </div>
+                          );
+                        }
+                        if (effectiveStatus === "PARTIALLY_RETURNED") {
+                          return (
+                            <div>
+                              <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
+                                ₹{Math.max(0, (tx.grandTotal || 0) - refundAmt).toFixed(2)}
+                              </div>
+                              <div style={{ fontSize: "10px", color: "var(--accent-amber)", fontWeight: "600" }}>
+                                Ret: -₹{refundAmt.toFixed(2)}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
+                            ₹{(tx.grandTotal || 0).toFixed(2)}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td>
                       {(() => {

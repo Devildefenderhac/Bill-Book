@@ -235,7 +235,14 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
                 {(transaction.items || []).map((item, idx) => {
                   const key = `item_${idx}`;
                   const billedQty = Number(item.qty || item.quantity || 1);
-                  const alreadyReturned = Number(item.returnedQty || 0);
+                  const alreadyReturned = Number(item.returnedQty || 0) ||
+                    Number((transaction.returnDetails?.returnedItems || []).find((r) =>
+                      (r.itemIndex !== undefined && Number(r.itemIndex) === idx) ||
+                      (r.id && item.id && String(r.id) === String(item.id))
+                    )?.returnedQty || (transaction.returnDetails?.returnedItems || []).find((r) =>
+                      (r.itemIndex !== undefined && Number(r.itemIndex) === idx) ||
+                      (r.id && item.id && String(r.id) === String(item.id))
+                    )?.returnQty || 0);
                   const maxAvailableToReturn = Math.max(0, billedQty - alreadyReturned);
                   const rq = returnQty[key] || 0;
 
@@ -260,7 +267,7 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
                   const itemNetRefund = rq * netUnitPrice;
 
                   return (
-                    <tr key={key}>
+                    <tr key={key} style={{ opacity: maxAvailableToReturn === 0 ? 0.65 : 1 }}>
                       <td style={{ fontWeight: "600" }}>{item.name}</td>
                       <td>₹{originalPrice.toFixed(2)}</td>
                       {transaction.discount > 0 && (
@@ -272,68 +279,85 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
                         ₹{netUnitPrice.toFixed(2)}
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        {billedQty}
+                        <div>{billedQty}</div>
                         {alreadyReturned > 0 && (
-                          <span style={{ fontSize: "10px", color: "var(--accent-amber)", display: "block" }}>
+                          <span style={{ fontSize: "10px", color: "var(--accent-amber)", fontWeight: "600", display: "block" }}>
                             ({alreadyReturned} ret)
                           </span>
                         )}
                       </td>
                       <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "center" }}>
-                          <button
-                            type="button"
-                            onClick={() => handleQtyChange(key, maxAvailableToReturn, -1)}
-                            disabled={rq <= 0}
-                            style={{
-                              width: "28px", height: "28px", borderRadius: "6px",
-                              background: rq > 0 ? "rgba(244, 63, 94, 0.2)" : "var(--bg-primary)",
-                              border: "1px solid var(--border-color)",
-                              cursor: rq > 0 ? "pointer" : "default",
-                              color: rq > 0 ? "var(--accent-rose)" : "var(--text-dim)",
-                              fontWeight: "bold", fontSize: "16px",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                            }}
-                          >
-                            −
-                          </button>
-                          <input
-                            type="number"
-                            min="0"
-                            max={maxAvailableToReturn}
-                            value={rq}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              const parsed = isNaN(val) ? 0 : Math.min(Math.max(0, val), maxAvailableToReturn);
-                              setReturnQty((prev) => ({
-                                ...prev,
-                                [key]: parsed,
-                              }));
-                            }}
-                            style={{
-                              width: "48px", textAlign: "center",
-                              background: "var(--bg-primary)", border: "1px solid var(--border-color)",
-                              borderRadius: "6px", color: rq > 0 ? "var(--accent-rose)" : "var(--text-main)",
-                              padding: "4px", fontSize: "13px", fontWeight: "bold",
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleQtyChange(key, maxAvailableToReturn, 1)}
-                            disabled={rq >= maxAvailableToReturn}
-                            style={{
-                              width: "28px", height: "28px", borderRadius: "6px",
-                              background: rq < maxAvailableToReturn ? "rgba(16, 185, 129, 0.2)" : "var(--bg-primary)",
-                              border: "1px solid var(--border-color)",
-                              cursor: rq < maxAvailableToReturn ? "pointer" : "default",
-                              color: rq < maxAvailableToReturn ? "var(--accent-emerald)" : "var(--text-dim)",
-                              fontWeight: "bold", fontSize: "16px",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                            }}
-                          >
-                            +
-                          </button>
-                        </div>
+                        {maxAvailableToReturn === 0 ? (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <span style={{
+                              padding: "3px 8px",
+                              borderRadius: "10px",
+                              fontSize: "10px",
+                              fontWeight: "700",
+                              background: "rgba(245, 158, 11, 0.15)",
+                              color: "var(--accent-amber)",
+                              border: "1px solid rgba(245, 158, 11, 0.35)",
+                              whiteSpace: "nowrap",
+                            }}>
+                              ✓ Already Returned
+                            </span>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "center" }}>
+                            <button
+                              type="button"
+                              onClick={() => handleQtyChange(key, maxAvailableToReturn, -1)}
+                              disabled={rq <= 0}
+                              style={{
+                                width: "28px", height: "28px", borderRadius: "6px",
+                                background: rq > 0 ? "rgba(244, 63, 94, 0.2)" : "var(--bg-primary)",
+                                border: "1px solid var(--border-color)",
+                                cursor: rq > 0 ? "pointer" : "default",
+                                color: rq > 0 ? "var(--accent-rose)" : "var(--text-dim)",
+                                fontWeight: "bold", fontSize: "16px",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              max={maxAvailableToReturn}
+                              value={rq}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                const parsed = isNaN(val) ? 0 : Math.min(Math.max(0, val), maxAvailableToReturn);
+                                setReturnQty((prev) => ({
+                                 ...prev,
+                                 [key]: parsed,
+                                }));
+                              }}
+                              style={{
+                                width: "48px", textAlign: "center",
+                                background: "var(--bg-primary)", border: "1px solid var(--border-color)",
+                                borderRadius: "6px", color: rq > 0 ? "var(--accent-rose)" : "var(--text-main)",
+                                padding: "4px", fontSize: "13px", fontWeight: "bold",
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleQtyChange(key, maxAvailableToReturn, 1)}
+                              disabled={rq >= maxAvailableToReturn}
+                              style={{
+                                width: "28px", height: "28px", borderRadius: "6px",
+                                background: rq < maxAvailableToReturn ? "rgba(16, 185, 129, 0.2)" : "var(--bg-primary)",
+                                border: "1px solid var(--border-color)",
+                                cursor: rq < maxAvailableToReturn ? "pointer" : "default",
+                                color: rq < maxAvailableToReturn ? "var(--accent-emerald)" : "var(--text-dim)",
+                                fontWeight: "bold", fontSize: "16px",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td style={{
                         textAlign: "right", fontWeight: "700",

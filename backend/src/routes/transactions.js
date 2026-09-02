@@ -242,7 +242,18 @@ router.post('/return', (req, res) => {
     if (err || !row) return res.status(404).json({ error: 'Transaction not found' });
     const originalTx = parseTx(row);
 
+    const prevReturnedList = Array.isArray(originalTx.returnDetails?.returnedItems) ? originalTx.returnDetails.returnedItems : [];
+
     const updatedItems = (originalTx.items || []).map((item, idx) => {
+      const prevRetQty = Number(item.returnedQty || 0) ||
+        Number(prevReturnedList.find((r) =>
+          (r.itemIndex !== undefined && Number(r.itemIndex) === idx) ||
+          (r.id && item.id && String(r.id) === String(item.id))
+        )?.returnedQty || prevReturnedList.find((r) =>
+          (r.itemIndex !== undefined && Number(r.itemIndex) === idx) ||
+          (r.id && item.id && String(r.id) === String(item.id))
+        )?.returnQty || 0);
+
       const ret = (returnedItems || []).find((r) => {
         if (r.itemIndex !== undefined && r.itemIndex !== null) {
           return Number(r.itemIndex) === idx;
@@ -255,15 +266,16 @@ router.post('/return', (req, res) => {
 
       if (ret) {
         const addedRetQty = Number(ret.returnQty || ret.returnedQty || 1);
-        const prevRetQty = Number(item.returnedQty || 0);
         return {
           ...item,
           returnedQty: Math.min(Number(item.qty || item.quantity || 1), prevRetQty + addedRetQty),
         };
       }
-      return item;
+      return {
+        ...item,
+        returnedQty: prevRetQty,
+      };
     });
-
 
     const totalBilledQty = (originalTx.items || []).reduce((s, i) => s + Number(i.qty || i.quantity || 1), 0);
     const totalAllReturnedQty = updatedItems.reduce((s, i) => s + Number(i.returnedQty || 0), 0);
@@ -274,19 +286,42 @@ router.post('/return', (req, res) => {
         ? 'PARTIALLY_RETURNED'
         : (originalTx.status || 'COMPLETED');
 
-    const calculatedRefund = Number(refundTotal) || (returnedItems || []).reduce((s, i) => {
+    const sessionRefund = Number(refundTotal) || (returnedItems || []).reduce((s, i) => {
       const rQty = Number(i.returnQty || i.returnedQty || 1);
       const rPrice = Number(i.netUnitPrice || i.netPrice || i.price || 0);
       return s + (rQty * rPrice);
     }, 0);
 
+    const prevRefundAmount = Number(originalTx.refundAmount || originalTx.returnDetails?.refundAmount || 0);
+    const cumulativeRefund = prevRefundAmount + sessionRefund;
+
+    const combinedReturnedItems = [...prevReturnedList];
+    (returnedItems || []).forEach((newRet) => {
+      const existingIdx = combinedReturnedItems.findIndex((r) =>
+        (r.itemIndex !== undefined && newRet.itemIndex !== undefined && Number(r.itemIndex) === Number(newRet.itemIndex)) ||
+        (r.id && newRet.id && String(r.id) === String(newRet.id))
+      );
+      if (existingIdx >= 0) {
+        const prev = combinedReturnedItems[existingIdx];
+        combinedReturnedItems[existingIdx] = {
+          ...prev,
+          returnQty: Number(prev.returnQty || prev.returnedQty || 0) + Number(newRet.returnQty || newRet.returnedQty || 1),
+          returnedQty: Number(prev.returnedQty || prev.returnQty || 0) + Number(newRet.returnedQty || newRet.returnQty || 1),
+        };
+      } else {
+        combinedReturnedItems.push(newRet);
+      }
+    });
+
     const returnDetails = {
-      returnedItems,
+      returnedItems: combinedReturnedItems,
+      lastReturnedItems: returnedItems,
       returnedBy: workerName,
       refundMode,
       upiRefundRef,
       originalPaymentMode,
-      refundAmount: calculatedRefund,
+      sessionRefundAmount: sessionRefund,
+      refundAmount: cumulativeRefund,
       timestamp: new Date().toISOString(),
     };
 
@@ -300,7 +335,7 @@ router.post('/return', (req, res) => {
       (originalTx.pendingAmount !== undefined && originalTx.pendingAmount > 0)
     ) {
       const currentPending = Number(originalTx.pendingAmount !== undefined ? originalTx.pendingAmount : originalTx.grandTotal) || 0;
-      newPendingAmount = Math.max(0, currentPending - calculatedRefund);
+      newPendingAmount = Math.max(0, currentPending - sessionRefund);
       if (newPendingAmount === 0) {
         newPaymentStatus = 'PAID';
       }
@@ -327,7 +362,8 @@ router.post('/return', (req, res) => {
           status: newStatus,
           items: updatedItems,
           returnDetails,
-          refundAmount: calculatedRefund,
+          refundAmount: cumulativeRefund,
+          sessionRefundAmount: sessionRefund,
           refundMode,
           upiRefundRef,
           originalPaymentMode,

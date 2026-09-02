@@ -478,6 +478,9 @@ export default function App() {
   const handleReturnBill = async (billNo, returnedItems, refundMode = "CASH", upiRefundRef = "", originalPaymentMode = "", refundTotal = 0) => {
     const workerName = currentUser ? currentUser.name : "Store Owner (Admin)";
 
+    const originalTx = transactions.find((t) => t.billNo === billNo);
+    if (!originalTx) return;
+
     const prevReturnedList = Array.isArray(originalTx.returnDetails?.returnedItems) ? originalTx.returnDetails.returnedItems : [];
 
     const updatedItems = (originalTx.items || []).map((item, idx) => {

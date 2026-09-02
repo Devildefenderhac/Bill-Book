@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Store, Lock, User, LogIn, ShieldCheck, UserCheck, Eye, EyeOff } from "lucide-react";
+import { Store, Lock, User, LogIn, Eye, EyeOff } from "lucide-react";
 import { loginWorker } from "../utils/api";
 import { INITIAL_WORKERS } from "../data/initialData";
 import { decryptEncryptedObject } from "../utils/storageCrypto";
@@ -26,7 +26,7 @@ export default function LoginScreen({ onLogin, workers = [] }) {
     const cleanUser = username.trim().toLowerCase();
     const cleanPass = password.trim();
 
-    // 1. Authenticate against live backend API (Localhost or Cloud Render)
+    // 1. Authenticate directly against Central Cloud Database API
     try {
       const res = await loginWorker(username, password);
       if (res && res.success && res.worker) {
@@ -42,7 +42,7 @@ export default function LoginScreen({ onLogin, workers = [] }) {
         onLogin({
           role: isMasterAdminRole ? "master_admin" : isAdminRole ? "admin" : "cashier",
           name: res.worker.name,
-          counter: res.worker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin 1" : "1"),
+          counter: res.worker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin 1" : "Counter 1"),
           username: res.worker.username || cleanUser,
           id: res.worker.id,
           canCancelBills: res.worker.canCancelBills,
@@ -55,15 +55,14 @@ export default function LoginScreen({ onLogin, workers = [] }) {
         return;
       }
     } catch (err) {
-      console.warn("Backend API unavailable, using offline fallback", err);
+      console.warn("Cloud backend API unavailable, checking local offline fallback", err);
     }
 
-    // 2. Client-side / Offline / GitHub Pages authentication
+    // 2. Client-side / Offline fallback authentication
     try {
       const decInitial = (await decryptEncryptedObject(INITIAL_WORKERS || [])) || [];
       const decWorkers = (await decryptEncryptedObject(workers || [])) || [];
 
-      // Combine worker list with default seeds so all accounts are verifiable offline
       const allCandidates = [...decWorkers, ...decInitial];
       const matchedWorker = allCandidates.find((w) => {
         if (!w) return false;
@@ -94,7 +93,7 @@ export default function LoginScreen({ onLogin, workers = [] }) {
           onLogin({
             role: isMasterAdminRole ? "master_admin" : isAdminRole ? "admin" : "cashier",
             name: matchedWorker.name,
-            counter: matchedWorker.counter || (isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin 1" : "1"),
+            counter: isMasterAdminRole ? "Master Dashboard" : isAdminRole ? "Admin 1" : "Counter 1",
             username: matchedWorker.username || cleanUser,
             id: matchedWorker.id,
             canCancelBills: matchedWorker.canCancelBills,
@@ -168,8 +167,6 @@ export default function LoginScreen({ onLogin, workers = [] }) {
             Sign in with your Account ID & Password
           </p>
         </div>
-
-
 
         {/* Error Alert */}
         {errorMsg && (
@@ -312,7 +309,7 @@ export default function LoginScreen({ onLogin, workers = [] }) {
             onMouseOut={(e) => (e.target.style.transform = "none")}
           >
             <LogIn size={18} />
-            <span>{isLoading ? "Authenticating..." : "Sign In to System"}</span>
+            <span>{isLoading ? "Signing in..." : "Sign In to System"}</span>
           </button>
         </form>
       </div>

@@ -1,5 +1,5 @@
 const express = require('express');
-const { getDb } = require('../db/database');
+const { getDb, saveLiveSnapshot } = require('../db/database');
 const { encrypt, decrypt } = require('../utils/crypto');
 const { verifyApiKey } = require('../middleware/auth');
 const router = express.Router();
@@ -39,6 +39,7 @@ function parseTx(row) {
 
   return {
     ...row,
+    counter: row.counter || 'Counter 1',
     customerName: decrypt(row.customerName) || row.customerName,
     customerPhone: decrypt(row.customerPhone) || row.customerPhone,
     upiRefNo: decrypt(row.upiRefNo) || row.upiRefNo,
@@ -98,15 +99,16 @@ router.post('/', (req, res) => {
       const itemsJson = JSON.stringify(tx.items || []);
       const returnDetailsJson = tx.returnDetails ? JSON.stringify(tx.returnDetails) : null;
       const settlementDetailsJson = tx.settlementDetails ? JSON.stringify(tx.settlementDetails) : null;
+      const counterName = tx.counter || 'Counter 1';
 
-      // Upsert transaction
+      // Upsert transaction with parameterized query
       db.run(
         `INSERT INTO transactions (
           billNo, timestamp, customerName, customerPhone, items,
           subtotal, discount, grandTotal, paymentMode, paymentStatus,
           pendingAmount, advanceAmount, cashTendered, changeReturned,
-          upiRefNo, cardRefNo, workerName, status, printCount, returnDetails, settlementDetails
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          upiRefNo, cardRefNo, workerName, counter, status, printCount, returnDetails, settlementDetails
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(billNo) DO UPDATE SET
           status = excluded.status,
           items = excluded.items,
@@ -119,6 +121,7 @@ router.post('/', (req, res) => {
           advanceAmount = excluded.advanceAmount,
           cashTendered = excluded.cashTendered,
           changeReturned = excluded.changeReturned,
+          counter = COALESCE(excluded.counter, transactions.counter),
           returnDetails = COALESCE(excluded.returnDetails, transactions.returnDetails),
           settlementDetails = COALESCE(excluded.settlementDetails, transactions.settlementDetails)`,
         [
@@ -139,6 +142,7 @@ router.post('/', (req, res) => {
           encrypt(tx.upiRefNo || ''),
           encrypt(tx.cardRefNo || ''),
           tx.workerName || 'Store Owner',
+          counterName,
           tx.status || 'COMPLETED',
           Number(tx.printCount) || 1,
           returnDetailsJson,
@@ -147,7 +151,7 @@ router.post('/', (req, res) => {
         function (err) {
           if (err) return res.status(500).json({ error: err.message });
 
-          // Deduct stock for sold items
+          // Deduct stock for sold items with parameterized queries
           if (Array.isArray(tx.items)) {
             tx.items.forEach((item) => {
               if (item.id && (item.qty || item.quantity)) {
@@ -165,6 +169,7 @@ router.post('/', (req, res) => {
                 return { ...r, sizes };
               });
               const txs = (txRows || []).map(parseTx);
+              saveLiveSnapshot(db);
               res.json({ success: true, billNo: finalBillNo, products: prods, transactions: txs });
             });
           });
@@ -195,6 +200,7 @@ router.post('/cancel', (req, res) => {
         });
       }
 
+      saveLiveSnapshot(db);
       res.json({ success: true });
     });
   });
@@ -221,6 +227,7 @@ router.post('/uncancel', (req, res) => {
         });
       }
 
+      saveLiveSnapshot(db);
       res.json({ success: true });
     });
   });
@@ -281,6 +288,7 @@ router.post('/return', (req, res) => {
           originalPaymentMode,
         };
 
+        saveLiveSnapshot(db);
         res.json({ success: true, originalTx: returnTx, returnTx });
       }
     );
@@ -340,6 +348,7 @@ router.post('/settle', (req, res) => {
       [newPending, newAdvance, newStatus, JSON.stringify(settlementDetails), billNo, id],
       function (uErr) {
         if (uErr) return res.status(500).json({ error: uErr.message });
+        saveLiveSnapshot(db);
         res.json({
           success: true,
           newPending,
@@ -363,6 +372,7 @@ router.post('/increment-print', (req, res) => {
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       db.get('SELECT * FROM transactions WHERE id = ? OR billNo = ?', [id, billNo], (gErr, row) => {
+        saveLiveSnapshot(db);
         res.json({ success: true, tx: parseTx(row) });
       });
     }
@@ -370,3 +380,4 @@ router.post('/increment-print', (req, res) => {
 });
 
 module.exports = router;
+

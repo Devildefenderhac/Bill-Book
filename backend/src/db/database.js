@@ -359,6 +359,7 @@ function initDb() {
         upiRefNo TEXT,
         cardRefNo TEXT,
         workerName TEXT,
+        counter TEXT DEFAULT 'Counter 1',
         status TEXT DEFAULT 'COMPLETED',
         printCount INTEGER DEFAULT 1,
         returnDetails TEXT,
@@ -371,6 +372,8 @@ function initDb() {
     db.run("ALTER TABLE transactions ADD COLUMN returnDetails TEXT", () => { });
     db.run("ALTER TABLE transactions ADD COLUMN settlementDetails TEXT", () => { });
     db.run("ALTER TABLE transactions ADD COLUMN printCount INTEGER DEFAULT 1", () => { });
+    db.run("ALTER TABLE transactions ADD COLUMN counter TEXT DEFAULT 'Counter 1'", () => { });
+
 
     // Seed workers only if empty
     db.get('SELECT COUNT(*) as count FROM workers', [], (err, row) => {
@@ -462,12 +465,108 @@ function initDb() {
       }
     });
 
+    // Auto-restore any prior live snapshot if available (survives container restarts)
+    restoreLiveSnapshotIfAvailable(db);
+
     console.log('✅ Database schema and seeding initialized');
   });
+}
+
+const fs = require('fs');
+const SNAPSHOT_DIR = path.join(__dirname, '../../snapshots');
+const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'live_state_snapshot.json');
+
+function saveLiveSnapshot(databaseInstance = null) {
+  const d = databaseInstance || db;
+  if (!d) return;
+  try {
+    if (!fs.existsSync(SNAPSHOT_DIR)) {
+      fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
+    }
+
+    d.all('SELECT * FROM workers', [], (errW, workers) => {
+      if (errW || !workers) return;
+      d.all('SELECT * FROM transactions', [], (errT, transactions) => {
+        if (errT || !transactions) return;
+        d.all('SELECT * FROM products', [], (errP, products) => {
+          d.get('SELECT * FROM settings WHERE id = 1', [], (errS, settings) => {
+            const snapshot = {
+              timestamp: new Date().toISOString(),
+              workers,
+              transactions,
+              products: products || [],
+              settings: settings || null,
+            };
+            fs.writeFileSync(SNAPSHOT_FILE, JSON.stringify(snapshot, null, 2), 'utf8');
+          });
+        });
+      });
+    });
+  } catch (err) {
+    console.warn('Could not save persistent snapshot:', err.message);
+  }
+}
+
+function restoreLiveSnapshotIfAvailable(databaseInstance = null) {
+  const d = databaseInstance || db;
+  if (!d || !fs.existsSync(SNAPSHOT_FILE)) return;
+
+  try {
+    const raw = fs.readFileSync(SNAPSHOT_FILE, 'utf8');
+    const snapshot = JSON.parse(raw);
+    if (!snapshot) return;
+
+    if (Array.isArray(snapshot.workers) && snapshot.workers.length > 0) {
+      const stmt = d.prepare(`
+        INSERT OR REPLACE INTO workers (id, username, password, name, phone, role, counter, canCancelBills, canAccessMarketing)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      snapshot.workers.forEach((w) => {
+        stmt.run([w.id, w.username, w.password, w.name, w.phone, w.role, w.counter, w.canCancelBills, w.canAccessMarketing]);
+      });
+      stmt.finalize();
+    }
+
+    if (Array.isArray(snapshot.transactions) && snapshot.transactions.length > 0) {
+      const stmtT = d.prepare(`
+        INSERT OR REPLACE INTO transactions (
+          id, billNo, timestamp, customerName, customerPhone, items,
+          subtotal, discount, grandTotal, paymentMode, paymentStatus,
+          pendingAmount, advanceAmount, cashTendered, changeReturned,
+          upiRefNo, cardRefNo, workerName, counter, status, printCount,
+          returnDetails, settlementDetails
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      snapshot.transactions.forEach((tx) => {
+        stmtT.run([
+          tx.id, tx.billNo, tx.timestamp, tx.customerName, tx.customerPhone, tx.items,
+          tx.subtotal, tx.discount, tx.grandTotal, tx.paymentMode, tx.paymentStatus,
+          tx.pendingAmount, tx.advanceAmount, tx.cashTendered, tx.changeReturned,
+          tx.upiRefNo, tx.cardRefNo, tx.workerName, tx.counter || 'Counter 1', tx.status,
+          tx.printCount || 1, tx.returnDetails || null, tx.settlementDetails || null
+        ]);
+      });
+      stmtT.finalize();
+    }
+
+    console.log('✅ Auto-restored state from live snapshot successfully');
+  } catch (err) {
+    console.warn('Snapshot restore notice:', err.message);
+  }
 }
 
 function getDb() {
   return db;
 }
 
-module.exports = { initDb, getDb, INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS, INITIAL_WORKERS, INITIAL_TRANSACTIONS };
+module.exports = {
+  initDb,
+  getDb,
+  saveLiveSnapshot,
+  restoreLiveSnapshotIfAvailable,
+  INITIAL_STORE_SETTINGS,
+  INITIAL_PRODUCTS,
+  INITIAL_WORKERS,
+  INITIAL_TRANSACTIONS
+};
+

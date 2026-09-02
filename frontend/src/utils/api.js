@@ -1,34 +1,74 @@
-// ── DYNAMIC CENTRALIZED DATABASE & CLOUD SYNC ENGINE ──────────────────
-// Automatically connects to local backend when developing on PC, or Render Cloud when deployed on GitHub Pages
+// ── CENTRALIZED CLOUD DATABASE & REAL-TIME INTERNET SYNC ENGINE ──────────────────
+// Connects all 5 mall counters, Electron Desktop apps, and GitHub Pages to the same Central Cloud Server
 
-export const LOCAL_API_BASE = "http://127.0.0.1:5000/api";
-export const CLOUD_API_BASE = "https://billbook-api-vxph.onrender.com/api";
+export const DEFAULT_CLOUD_API_BASE = "https://billbook-api-vxph.onrender.com/api";
+export const LOCAL_DEV_API_BASE = "http://127.0.0.1:5000/api";
 
-// Helper to determine if we are running in a local desktop / dev environment
-export const isLocalEnvironment = () => {
-  if (typeof window === "undefined") return false;
-  const host = window.location.hostname;
-  return host === "localhost" || host === "127.0.0.1" || host === "" || window.location.protocol === "file:";
+const SERVER_URL_STORAGE_KEY = "billbook_custom_server_url";
+const COUNTER_NAME_STORAGE_KEY = "billbook_current_counter";
+const POS_API_KEY = "BB_POS_SECURE_API_KEY_7061";
+const OFFLINE_QUEUE_KEY = "billbook_offline_queue";
+
+// Get active Central Server URL (Custom configured cloud server or Default Render Cloud)
+export const getApiBaseUrl = () => {
+  if (typeof window === "undefined") return DEFAULT_CLOUD_API_BASE;
+  try {
+    const customUrl = localStorage.getItem(SERVER_URL_STORAGE_KEY);
+    if (customUrl && customUrl.trim()) {
+      return customUrl.trim().replace(/\/+$/, "");
+    }
+  } catch (e) {}
+  return DEFAULT_CLOUD_API_BASE;
 };
 
-export const getApiBaseUrl = () => {
-  if (isLocalEnvironment()) {
-    return LOCAL_API_BASE;
+// Update or switch Central Server URL
+export const setCustomServerUrl = (url) => {
+  try {
+    if (!url || url.trim() === "" || url.trim() === DEFAULT_CLOUD_API_BASE) {
+      localStorage.removeItem(SERVER_URL_STORAGE_KEY);
+    } else {
+      localStorage.setItem(SERVER_URL_STORAGE_KEY, url.trim().replace(/\/+$/, ""));
+    }
+    return true;
+  } catch (e) {
+    return false;
   }
-  return CLOUD_API_BASE;
+};
+
+// Reset Server URL to official Default Cloud Server
+export const resetServerUrlToDefault = () => {
+  try {
+    localStorage.removeItem(SERVER_URL_STORAGE_KEY);
+    return DEFAULT_CLOUD_API_BASE;
+  } catch (e) {
+    return DEFAULT_CLOUD_API_BASE;
+  }
+};
+
+// Counter Management: get and set this machine's counter tag (e.g. Counter 1, Counter 2, etc.)
+export const getActiveCounter = () => {
+  try {
+    return localStorage.getItem(COUNTER_NAME_STORAGE_KEY) || "Counter 1";
+  } catch (e) {
+    return "Counter 1";
+  }
+};
+
+export const setActiveCounter = (counterName) => {
+  try {
+    localStorage.setItem(COUNTER_NAME_STORAGE_KEY, counterName || "Counter 1");
+  } catch (e) {}
 };
 
 export const API_BASE = getApiBaseUrl();
 
-// Local hardware port controller for USB physical printer (always on cashier PC)
+// Local hardware port controller for USB physical printer (cashier PC)
 const PRINTER_API_BASE = "http://127.0.0.1:5000/api";
-
-const POS_API_KEY = "BB_POS_SECURE_API_KEY_7061";
-const OFFLINE_QUEUE_KEY = "billbook_offline_queue";
 
 export const defaultHeaders = (extra = {}) => ({
   "Content-Type": "application/json",
   "x-pos-api-key": POS_API_KEY,
+  "x-counter-name": getActiveCounter(),
   ...extra,
 });
 
@@ -49,32 +89,18 @@ export async function checkApiHealth(targetUrl = null) {
   }
 }
 
-// Background Cloud Replication: Sends mutations made on local PC to Render Cloud in background
-async function replicateToCloud(endpoint, method = "POST", body = null) {
-  if (!isLocalEnvironment()) return; // Only local PC needs to replicate to cloud
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    await fetch(`${CLOUD_API_BASE}${endpoint}`, {
-      method,
-      headers: defaultHeaders(),
-      body: body ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-  } catch (err) {
-    console.warn(`[Cloud Replication] Background sync to ${endpoint} skipped/offline:`, err.message);
-  }
-}
-
-// Queue a transaction to be uploaded when cloud backend is online
+// Queue a transaction to be uploaded when internet / cloud backend is online
 export function enqueueOfflineTransaction(transaction) {
   try {
     const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
     const queue = raw ? JSON.parse(raw) : [];
     const exists = queue.some((tx) => tx.billNo === transaction.billNo);
     if (!exists) {
-      queue.push({ ...transaction, _queuedAt: new Date().toISOString() });
+      queue.push({
+        ...transaction,
+        counter: transaction.counter || getActiveCounter(),
+        _queuedAt: new Date().toISOString(),
+      });
       localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
     }
   } catch (e) {
@@ -93,7 +119,7 @@ export function getOfflineQueueCount() {
   }
 }
 
-// Sync all queued offline transactions to the cloud backend
+// Sync all queued offline transactions directly to the central cloud server
 export async function syncOfflineTransactions() {
   try {
     const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
@@ -106,7 +132,7 @@ export async function syncOfflineTransactions() {
 
     for (const tx of queue) {
       try {
-        const res = await processSale(tx);
+        const res = await processSale(tx, true);
         if (res && (res.success !== false || res.alreadyExists)) {
           syncedCount++;
         } else {
@@ -130,213 +156,51 @@ export async function syncOfflineTransactions() {
   }
 }
 
-// ── FULL BI-DIRECTIONAL CLOUD SYNCHRONIZATION ───────────────────
-// Synchronizes all local transactions, products, settings, and workers to Render Cloud
-// so they immediately appear on GitHub Pages / remote devices
+// ── FULL REAL-TIME CENTRAL CLOUD SYNCHRONIZATION ───────────────────
+// Fetches fresh live dataset directly from the Central Cloud Server for all 5 systems & Owner Dashboard
 export async function performFullCloudSync() {
-  const isLocal = isLocalEnvironment();
+  const targetApi = getApiBaseUrl();
 
   try {
-    // 1. If running on GitHub Pages (remote), simply fetch fresh live data from Cloud
-    if (!isLocal) {
-      const [cloudTxs, cloudProds, cloudWorkers, cloudSettings] = await Promise.all([
-        fetch(`${CLOUD_API_BASE}/transactions`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
-        fetch(`${CLOUD_API_BASE}/products`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
-        fetch(`${CLOUD_API_BASE}/workers/all`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
-        fetch(`${CLOUD_API_BASE}/settings`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
-      ]);
+    // 1. Drain any pending offline queue first
+    await syncOfflineTransactions();
+
+    // 2. Fetch live store dataset in parallel directly from Central Cloud Database
+    const [cloudTxs, cloudProds, cloudWorkers, cloudSettings] = await Promise.all([
+      fetch(`${targetApi}/transactions`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
+      fetch(`${targetApi}/products`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
+      fetch(`${targetApi}/workers/all`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
+      fetch(`${targetApi}/settings`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
+    ]);
+
+    const isLive = cloudTxs !== null || cloudProds !== null;
+
+    if (isLive) {
       return {
         success: true,
-        isLocal: false,
         totalTxs: cloudTxs?.length || 0,
         transactions: cloudTxs,
         products: cloudProds,
         workers: cloudWorkers,
         settings: cloudSettings,
-        message: "☁️ Live Cloud Synced: Latest store data loaded!",
+        message: `☁️ Live Cloud Synced: All 5 Counter Bills & Inventory Synchronized!`,
       };
     }
 
-    // 2. Running on Localhost / Local PC: Perform full 2-way sync with Render Cloud
-    // First wake up / verify cloud server
-    const isCloudOnline = await checkApiHealth(`${CLOUD_API_BASE}/health`);
-    if (!isCloudOnline) {
-      console.warn("Cloud backend is sleeping or unreachable, retrying ping...");
-    }
-
-    // Fetch local and cloud datasets in parallel
-    const [localTxs, localProds, localWorkers, localSettings, cloudTxs] = await Promise.all([
-      fetch(`${LOCAL_API_BASE}/transactions`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => []),
-      fetch(`${LOCAL_API_BASE}/products`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => []),
-      fetch(`${LOCAL_API_BASE}/workers/all`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => []),
-      fetch(`${LOCAL_API_BASE}/settings`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => null),
-      fetch(`${CLOUD_API_BASE}/transactions`, { headers: defaultHeaders() }).then((r) => r.json()).catch(() => []),
-    ]);
-
-    const cloudBillSet = new Set((cloudTxs || []).map((t) => t.billNo));
-    const localBillSet = new Set((localTxs || []).map((t) => t.billNo));
-
-    let pushedTxCount = 0;
-    let pulledTxCount = 0;
-
-    // A. Push local transactions that are missing in Cloud
-    const missingInCloud = (localTxs || []).filter((t) => !cloudBillSet.has(t.billNo));
-    for (const tx of missingInCloud) {
-      try {
-        await fetch(`${CLOUD_API_BASE}/transactions`, {
-          method: "POST",
-          headers: defaultHeaders(),
-          body: JSON.stringify(tx),
-        });
-        pushedTxCount++;
-      } catch (err) {
-        console.warn("Failed to push tx to cloud:", tx.billNo, err);
-      }
-    }
-
-    // A2. Synchronize Status & Return / Refund / Cancel / Settle updates for existing transactions
-    const existingInCloud = (localTxs || []).filter((t) => cloudBillSet.has(t.billNo));
-    for (const localTx of existingInCloud) {
-      const cloudTx = (cloudTxs || []).find((ct) => ct.billNo === localTx.billNo);
-      if (!cloudTx) continue;
-
-      const isLocalReturned = localTx.status === "RETURNED" || localTx.status === "PARTIALLY_RETURNED" || !!localTx.returnDetails;
-      const isCloudReturned = cloudTx.status === "RETURNED" || cloudTx.status === "PARTIALLY_RETURNED" || !!cloudTx.returnDetails;
-      const needsReturnSync = isLocalReturned && (!isCloudReturned || cloudTx.status !== localTx.status || (localTx.returnDetails && !cloudTx.returnDetails));
-
-      if (needsReturnSync) {
-        try {
-          const retBody = {
-            billNo: localTx.billNo,
-            returnedItems: localTx.returnDetails?.returnedItems || (localTx.items || []).filter((i) => (i.returnedQty || 0) > 0 || (i.returnQty || 0) > 0),
-            workerName: localTx.returnDetails?.returnedBy || localTx.workerName || "Store Owner",
-            refundMode: localTx.returnDetails?.refundMode || localTx.refundMode || "CASH",
-            upiRefundRef: localTx.returnDetails?.upiRefundRef || localTx.upiRefundRef || "",
-            originalPaymentMode: localTx.returnDetails?.originalPaymentMode || localTx.paymentMode || "",
-            refundTotal: localTx.returnDetails?.refundAmount || localTx.refundAmount || 0,
-          };
-          await fetch(`${CLOUD_API_BASE}/transactions/return`, {
-            method: "POST",
-            headers: defaultHeaders(),
-            body: JSON.stringify(retBody),
-          });
-          pushedTxCount++;
-        } catch (err) {
-          console.warn("Failed to sync return state to cloud:", localTx.billNo, err);
-        }
-      } else if (localTx.status === "CANCELLED" && cloudTx.status !== "CANCELLED") {
-        try {
-          await fetch(`${CLOUD_API_BASE}/transactions/cancel`, {
-            method: "POST",
-            headers: defaultHeaders(),
-            body: JSON.stringify({ billNo: localTx.billNo, id: localTx.id }),
-          });
-          pushedTxCount++;
-        } catch (err) {}
-      } else if (localTx.status === "COMPLETED" && cloudTx.status === "CANCELLED") {
-        try {
-          await fetch(`${CLOUD_API_BASE}/transactions/uncancel`, {
-            method: "POST",
-            headers: defaultHeaders(),
-            body: JSON.stringify({ billNo: localTx.billNo, id: localTx.id }),
-          });
-          pushedTxCount++;
-        } catch (err) {}
-      } else if (Array.isArray(localTx.settledHistory) && localTx.settledHistory.length > ((cloudTx.settledHistory || []).length)) {
-        // Sync pending udhar settlements
-        for (const st of localTx.settledHistory) {
-          try {
-            await fetch(`${CLOUD_API_BASE}/transactions/settle`, {
-              method: "POST",
-              headers: defaultHeaders(),
-              body: JSON.stringify({
-                billNo: localTx.billNo,
-                id: localTx.id,
-                amountPaid: st.amount,
-                paymentMode: st.paymentMode,
-                settledBy: st.settledBy,
-              }),
-            });
-            pushedTxCount++;
-          } catch (err) {}
-        }
-      }
-    }
-
-    // B. Pull any Cloud transactions that are missing in Local DB
-    const missingInLocal = (cloudTxs || []).filter((t) => !localBillSet.has(t.billNo));
-    for (const tx of missingInLocal) {
-      try {
-        await fetch(`${LOCAL_API_BASE}/transactions`, {
-          method: "POST",
-          headers: defaultHeaders(),
-          body: JSON.stringify(tx),
-        });
-        pulledTxCount++;
-      } catch (err) {
-        console.warn("Failed to pull tx from cloud:", tx.billNo, err);
-      }
-    }
-
-    // C. Replicate Local Products to Cloud
-    if (Array.isArray(localProds) && localProds.length > 0) {
-      for (const prod of localProds) {
-        try {
-          await fetch(`${CLOUD_API_BASE}/products`, {
-            method: "POST",
-            headers: defaultHeaders(),
-            body: JSON.stringify(prod),
-          });
-        } catch (e) {}
-      }
-    }
-
-    // D. Replicate Local Workers to Cloud
-    if (Array.isArray(localWorkers) && localWorkers.length > 0) {
-      for (const worker of localWorkers) {
-        try {
-          await fetch(`${CLOUD_API_BASE}/workers`, {
-            method: "POST",
-            headers: defaultHeaders(),
-            body: JSON.stringify(worker),
-          });
-        } catch (e) {}
-      }
-    }
-
-    // E. Replicate Local Settings to Cloud
-    if (localSettings) {
-      try {
-        await fetch(`${CLOUD_API_BASE}/settings`, {
-          method: "POST",
-          headers: defaultHeaders(),
-          body: JSON.stringify(localSettings),
-        });
-      } catch (e) {}
-    }
-
-    const totalBills = (localTxs || []).length + pulledTxCount;
     return {
-      success: true,
-      isLocal: true,
-      pushedTxCount,
-      pulledTxCount,
-      totalTxs: totalBills,
-      message:
-        pushedTxCount > 0
-          ? `☁️ Live Cloud Synced: ${pushedTxCount} new bill${pushedTxCount === 1 ? "" : "s"} uploaded to GitHub Pages!`
-          : `☁️ Live Cloud Synced: All ${totalBills} bills & inventory are up-to-date on GitHub Pages!`,
+      success: false,
+      message: "⚠️ Cloud server reconnecting. Using local offline cache.",
     };
   } catch (error) {
     console.error("performFullCloudSync error:", error);
     return {
       success: false,
-      isLocal,
       error: error.message,
-      message: "⚠️ Cloud sync error. Using local database.",
+      message: "⚠️ Cloud server reconnecting. Using local offline cache.",
     };
   }
 }
+
 
 // ── PRODUCTS API ─────────────────────────────────────────
 export async function fetchProducts() {
@@ -364,8 +228,6 @@ export async function saveProduct(product) {
       body: JSON.stringify(product),
     });
     const data = await res.json();
-    // Replicate to cloud in background if running locally
-    replicateToCloud("/products", "POST", product);
     return data;
   } catch (e) {
     console.error("Error saving product via API", e);
@@ -380,7 +242,6 @@ export async function deleteProduct(id) {
       headers: defaultHeaders(),
     });
     const data = await res.json();
-    replicateToCloud(`/products/${id}`, "DELETE");
     return data;
   } catch (e) {
     console.error("Error deleting product", e);
@@ -408,14 +269,18 @@ export async function fetchNextBillNumber() {
 }
 
 // ── TRANSACTIONS / SALES API ──────────────────────────────
-export async function processSale(transaction) {
+export async function processSale(transaction, isSilentOffline = false) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const payload = {
+      ...transaction,
+      counter: transaction.counter || getActiveCounter(),
+    };
     const res = await fetch(`${getApiBaseUrl()}/transactions`, {
       method: "POST",
       headers: defaultHeaders(),
-      body: JSON.stringify(transaction),
+      body: JSON.stringify(payload),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -427,15 +292,12 @@ export async function processSale(transaction) {
       throw new Error(`HTTP ${res.status}: ${errJson?.error || "Error"}`);
     }
     const data = await res.json();
-
-    // Replicate transaction to cloud immediately in background
-    replicateToCloud("/transactions", "POST", transaction);
-
     return data;
   } catch (e) {
     console.error("Error processing sale via API", e);
-    // Queue transaction for offline sync
-    enqueueOfflineTransaction(transaction);
+    if (!isSilentOffline) {
+      enqueueOfflineTransaction(transaction);
+    }
     return null;
   }
 }
@@ -483,7 +345,6 @@ export async function saveSettings(settings) {
       body: JSON.stringify(settings),
     });
     const data = await res.json();
-    replicateToCloud("/settings", "POST", settings);
     return data;
   } catch (e) {
     console.error("Error saving settings via API", e);
@@ -500,7 +361,6 @@ export async function cancelTransaction(billNo, id) {
       body: JSON.stringify({ billNo, id }),
     });
     const data = await res.json();
-    replicateToCloud("/transactions/cancel", "POST", { billNo, id });
     return data;
   } catch (e) {
     console.error("Error cancelling transaction", e);
@@ -516,7 +376,6 @@ export async function uncancelTransaction(billNo, id) {
       body: JSON.stringify({ billNo, id }),
     });
     const data = await res.json();
-    replicateToCloud("/transactions/uncancel", "POST", { billNo, id });
     return data;
   } catch (e) {
     console.error("Error uncancelling transaction", e);
@@ -533,7 +392,6 @@ export async function returnTransaction(billNo, returnedItems, workerName, refun
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    replicateToCloud("/transactions/return", "POST", body);
     return data;
   } catch (e) {
     console.error("Error returning transaction", e);
@@ -550,7 +408,6 @@ export async function settlePendingTransaction(billNo, id, amountPaid, paymentMo
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    replicateToCloud("/transactions/settle", "POST", body);
     return data;
   } catch (e) {
     console.error("Error settling transaction", e);
@@ -594,7 +451,6 @@ export async function saveWorker(worker) {
       body: JSON.stringify(worker),
     });
     const data = await res.json();
-    replicateToCloud("/workers", "POST", worker);
     return data;
   } catch (e) {
     console.error("Error saving worker", e);
@@ -609,7 +465,6 @@ export async function deleteWorker(id) {
       headers: defaultHeaders(),
     });
     const data = await res.json();
-    replicateToCloud(`/workers/${id}`, "DELETE");
     return data;
   } catch (e) {
     console.error("Error deleting worker", e);
@@ -638,13 +493,13 @@ export async function factoryReset() {
       headers: defaultHeaders(),
     });
     const data = await res.json();
-    replicateToCloud("/factory-reset", "POST");
     return data;
   } catch (e) {
     console.error("Error performing factory reset", e);
     return null;
   }
 }
+
 
 // ── THERMAL PRINTER HARDWARE API ─────────────────────────
 export async function getThermalPrinterStatus() {

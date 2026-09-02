@@ -34,41 +34,35 @@ import {
   enqueueOfflineTransaction,
   getOfflineQueueCount,
   performFullCloudSync,
-  isLocalEnvironment,
 } from "./utils/api";
 import { INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS, INITIAL_WORKERS } from "./data/initialData";
 import { secureLocalStorage, decryptEncryptedObject } from "./utils/storageCrypto";
 
 const DB_VERSION_KEY = "billbook_db_version";
-const CURRENT_DB_VERSION = "2026_08_31_v7_cloud_sync_fix";
+const CURRENT_DB_VERSION = "2026_09_02_v8_permanent_sync";
 
-// Automatically clear outdated browser local storage if database schema/seeds updated
-function checkAndClearOldBrowserStorage() {
+// Safely track database version without wiping user data
+function checkDatabaseVersion() {
   try {
-    const savedVersion = localStorage.getItem(DB_VERSION_KEY);
-    if (savedVersion !== CURRENT_DB_VERSION) {
-      localStorage.removeItem("billbook_workers");
-      localStorage.removeItem("enc_billbook_workers");
-      localStorage.removeItem("billbook_settings");
-      localStorage.removeItem("enc_billbook_settings");
-      localStorage.removeItem("billbook_products");
-      localStorage.removeItem("enc_billbook_products");
-      localStorage.removeItem("billbook_transactions");
-      localStorage.removeItem("enc_billbook_transactions");
-      localStorage.setItem(DB_VERSION_KEY, CURRENT_DB_VERSION);
-    }
+    localStorage.setItem(DB_VERSION_KEY, CURRENT_DB_VERSION);
   } catch (e) {
-    console.warn("Storage migration check error:", e);
+    console.warn("Version check notice:", e);
   }
 }
 
-checkAndClearOldBrowserStorage();
+checkDatabaseVersion();
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("billing");
-  const [settings, setSettings] = useState(INITIAL_STORE_SETTINGS);
-  const [products, setProducts] = useState(INITIAL_PRODUCTS);
-  const [transactions, setTransactions] = useState([]);
+  const [settings, setSettings] = useState(() => {
+    return secureLocalStorage.getItem("billbook_settings", INITIAL_STORE_SETTINGS);
+  });
+  const [products, setProducts] = useState(() => {
+    return secureLocalStorage.getItem("billbook_products", INITIAL_PRODUCTS);
+  });
+  const [transactions, setTransactions] = useState(() => {
+    return secureLocalStorage.getItem("billbook_transactions", []);
+  });
   const [workers, setWorkers] = useState(() => {
     return secureLocalStorage.getItem("billbook_workers", INITIAL_WORKERS);
   });
@@ -155,7 +149,7 @@ export default function App() {
     }, 300);
   };
 
-  // Load live data with bi-directional Cloud Sync support
+  // Self-Healing Live Cloud Data Loader & Auto-Resync
   const loadLiveData = async (isSilent = false) => {
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
@@ -176,7 +170,7 @@ export default function App() {
         }
       }
 
-      // 3. Fetch fresh live data in parallel
+      // 3. Fetch fresh live data in parallel from Central Cloud Database
       const [apiProducts, apiNextBill, apiTx, apiSet, apiWorkers] = await Promise.all([
         fetchProducts(),
         fetchNextBillNumber(),
@@ -187,11 +181,63 @@ export default function App() {
 
       const isBackendLive = apiTx !== null || apiProducts !== null;
 
-      if (apiProducts) setProducts(apiProducts);
+      // 4. Self-Healing Workers Sync: Merge and auto-restore custom accounts if cloud woke up empty
+      const localWorkers = secureLocalStorage.getItem("billbook_workers", INITIAL_WORKERS) || [];
+      let mergedWorkers = localWorkers;
+
+      if (Array.isArray(apiWorkers) && apiWorkers.length > 0) {
+        // Find any local custom worker not in cloud and restore it to cloud
+        const serverIds = new Set(apiWorkers.map((w) => w.id));
+        const missingOnServer = localWorkers.filter(
+          (w) => w && w.id && !serverIds.has(w.id) && w.id !== "master-admin-01"
+        );
+
+        if (missingOnServer.length > 0) {
+          console.log("🛡️ Self-healing: restoring custom workers to cloud database...", missingOnServer);
+          for (const missingW of missingOnServer) {
+            saveWorker(missingW).catch(() => {});
+          }
+        }
+
+        // Merge cloud workers + missing local workers
+        mergedWorkers = [...apiWorkers, ...missingOnServer];
+      }
+
+      setWorkers(mergedWorkers);
+      secureLocalStorage.setItem("billbook_workers", mergedWorkers);
+
+      // 5. Self-Healing Transactions Sync: Merge and auto-restore bills
+      const localTxs = secureLocalStorage.getItem("billbook_transactions", []) || [];
+      let mergedTxs = localTxs;
+
+      if (Array.isArray(apiTx)) {
+        const serverBillNos = new Set(apiTx.map((t) => t.billNo || t.id));
+        const missingTxsOnServer = localTxs.filter(
+          (t) => t && (t.billNo || t.id) && !serverBillNos.has(t.billNo || t.id)
+        );
+
+        if (missingTxsOnServer.length > 0) {
+          console.log("🛡️ Self-healing: restoring local transactions to cloud...", missingTxsOnServer.length);
+          for (const missingT of missingTxsOnServer) {
+            processSale(missingT).catch(() => {});
+          }
+        }
+
+        mergedTxs = [...apiTx, ...missingTxsOnServer];
+      }
+
+      setTransactions(mergedTxs);
+      secureLocalStorage.setItem("billbook_transactions", mergedTxs);
+
+      if (apiProducts) {
+        setProducts(apiProducts);
+        secureLocalStorage.setItem("billbook_products", apiProducts);
+      }
       if (apiNextBill) setCurrentBillNo(apiNextBill);
-      if (apiTx) setTransactions(apiTx);
-      if (apiSet && Object.keys(apiSet).length > 0) setSettings(apiSet);
-      if (apiWorkers) setWorkers(apiWorkers);
+      if (apiSet && Object.keys(apiSet).length > 0) {
+        setSettings(apiSet);
+        secureLocalStorage.setItem("billbook_settings", apiSet);
+      }
 
       checkPrinterStatus();
 
@@ -212,58 +258,26 @@ export default function App() {
     }
   };
 
-  // Initial decrypt on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const decSettings = await decryptEncryptedObject(INITIAL_STORE_SETTINGS);
-        const decWorkers = await decryptEncryptedObject(INITIAL_WORKERS);
-        if (decSettings) {
-          setSettings((prev) => {
-            const hasEnc = Object.values(prev || {}).some(
-              (v) => typeof v === "string" && v.startsWith("ENC::")
-            );
-            return hasEnc ? decSettings : { ...decSettings, ...prev };
-          });
-        }
-        if (decWorkers) {
-          setWorkers((prev) => {
-            const hasEnc = (prev || []).some(
-              (w) =>
-                (typeof w?.name === "string" && w.name.startsWith("ENC::")) ||
-                (typeof w?.counter === "string" && w.counter.startsWith("ENC::")) ||
-                (typeof w?.phone === "string" && w.phone.startsWith("ENC::"))
-            );
-            return !prev || prev.length === 0 || hasEnc ? decWorkers : prev;
-          });
-        }
-      } catch (e) {
-        console.warn("Decryption on mount error:", e);
-      }
-    })();
-  }, []);
 
-  // Continuous background polling, background cloud sync, and keep-alive ping
+  // Continuous background polling, central cloud sync, and keep-alive ping
   useEffect(() => {
     // 1. Initial live load
     loadLiveData(false);
 
-    // 2. Real-time background sync loop (every 8 seconds)
+    // 2. Real-time background sync loop (every 6 seconds for instant cross-counter sync)
     const pollInterval = setInterval(() => {
       loadLiveData(true);
-    }, 8000);
+    }, 6000);
 
-    // 3. Background cloud sync loop for local cashier PC (every 30 seconds)
+    // 3. Background cloud sync loop for all systems (every 15 seconds)
     const cloudSyncInterval = setInterval(() => {
-      if (isLocalEnvironment()) {
-        performFullCloudSync().catch(() => {});
-      }
-    }, 30000);
+      performFullCloudSync().catch(() => {});
+    }, 15000);
 
-    // 4. Keep-alive ping to prevent Render cold start sleep (every 8 minutes)
+    // 4. Keep-alive ping to prevent Render cold start sleep (every 5 minutes)
     const keepAliveInterval = setInterval(() => {
       checkApiHealth();
-    }, 8 * 60 * 1000);
+    }, 5 * 60 * 1000);
 
     // 5. Instant refresh on window focus / tab visibility / network reconnect
     const handleFocus = () => loadLiveData(true);
@@ -289,6 +303,7 @@ export default function App() {
       window.removeEventListener("online", handleOnline);
     };
   }, []);
+
 
   const handleUpdateSettings = async (newSettings) => {
     setSettings(newSettings);
@@ -394,11 +409,13 @@ export default function App() {
       upiRefNo,
       cardRefNo,
       workerName: currentUser ? currentUser.name : "Store Owner (Admin)",
+      counter: currentUser?.counter || "Counter 1",
       status: "COMPLETED",
     };
 
-    // Save transaction to Node.js backend
+    // Save transaction directly to Central Cloud Server
     const res = await processSale(newTransaction);
+
     if (res && res.products) {
       setProducts(res.products);
       if (res.transactions) setTransactions(res.transactions);
@@ -483,9 +500,7 @@ export default function App() {
       secureLocalStorage.setItem("billbook_transactions", updated);
       return updated;
     });
-    if (isLocalEnvironment()) {
-      performFullCloudSync().catch(() => {});
-    }
+    performFullCloudSync().catch(() => {});
     loadLiveData(true);
   };
 
@@ -496,9 +511,7 @@ export default function App() {
       secureLocalStorage.setItem("billbook_transactions", updated);
       return updated;
     });
-    if (isLocalEnvironment()) {
-      performFullCloudSync().catch(() => {});
-    }
+    performFullCloudSync().catch(() => {});
     loadLiveData(true);
   };
 
@@ -560,9 +573,7 @@ export default function App() {
       return updated;
     });
 
-    if (isLocalEnvironment()) {
-      performFullCloudSync().catch(() => {});
-    }
+    performFullCloudSync().catch(() => {});
     loadLiveData(true);
   };
 

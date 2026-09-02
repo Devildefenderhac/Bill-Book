@@ -124,8 +124,31 @@ app.post('/api/factory-reset', verifyApiKey, (req, res) => {
 
 
 // Health check
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
+
+// Server Diagnostics & Status Check
+app.get('/api/server-info', verifyApiKey, (req, res) => {
+  const db = getDb();
+  db.get('SELECT COUNT(*) as txCount FROM transactions', [], (tErr, tRow) => {
+    db.get('SELECT COUNT(*) as prodCount FROM products', [], (pErr, pRow) => {
+      db.get('SELECT COUNT(*) as workerCount FROM workers', [], (wErr, wRow) => {
+        res.json({
+          status: 'online',
+          version: '1.0.0',
+          engine: 'BillBook Centralized Cloud & Multi-Counter POS Engine',
+          timestamp: new Date().toISOString(),
+          stats: {
+            transactions: tRow?.txCount || 0,
+            products: pRow?.prodCount || 0,
+            workers: wRow?.workerCount || 0,
+          },
+        });
+      });
+    });
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`🛠️  Backend listening on http://localhost:${PORT}`);
 });
+

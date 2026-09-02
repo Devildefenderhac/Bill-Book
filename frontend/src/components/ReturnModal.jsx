@@ -35,8 +35,7 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
     if (transaction?.items) {
       const initial = {};
       (transaction.items || []).forEach((item, idx) => {
-        const key = item.id !== undefined && item.id !== null ? String(item.id) : `item_${idx}`;
-        initial[key] = 0;
+        initial[`item_${idx}`] = 0;
       });
       setReturnQty(initial);
       setRefundMode(transaction.paymentMode === "UPI" || transaction.paymentMode === "CARD" ? "UPI" : "CASH");
@@ -55,23 +54,46 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
     });
   };
 
-  // Calculate total refund amount
-  const refundTotal = useMemo(() => {
-    let sub = 0;
-    (transaction.items || []).forEach((item, idx) => {
-      const key = item.id !== undefined && item.id !== null ? String(item.id) : `item_${idx}`;
-      const qty = returnQty[key] || 0;
-      const price = Number(item.price || 0);
-      if (qty > 0) sub += price * qty;
-    });
-    // Apply proportional discount
-    let disc = 0;
+  // Calculate total refund amount with itemized proportional discount distribution
+  const { refundGross, refundDiscountDeduction, refundTotal } = useMemo(() => {
+    let gross = 0;
+    let totalDiscountDeduction = 0;
     const subtotal = Number(transaction.subtotal || 0);
-    const discount = Number(transaction.discount || 0);
-    if (discount > 0 && subtotal > 0) {
-      disc = sub * (discount / subtotal);
-    }
-    return Math.max(0, sub - disc);
+    const totalDiscount = Number(transaction.discount || 0);
+
+    (transaction.items || []).forEach((item, idx) => {
+      const key = `item_${idx}`;
+      const rq = returnQty[key] || 0;
+      if (rq <= 0) return;
+
+      const billedQty = Number(item.qty || item.quantity || 1);
+      const originalPrice = Number(item.price || 0);
+      const lineSubtotal = originalPrice * billedQty;
+
+      // Item proportional discount share
+      const itemDiscShare =
+        item.discountShare !== undefined && item.discountShare !== null
+          ? Number(item.discountShare)
+          : subtotal > 0 && totalDiscount > 0
+          ? (lineSubtotal / subtotal) * totalDiscount
+          : 0;
+
+      const unitDiscount = billedQty > 0 ? itemDiscShare / billedQty : 0;
+      const netUnitPrice =
+        item.netPrice !== undefined && item.netPrice !== null
+          ? Number(item.netPrice)
+          : Math.max(0, originalPrice - unitDiscount);
+
+      gross += originalPrice * rq;
+      totalDiscountDeduction += unitDiscount * rq;
+    });
+
+    const netRefund = Math.max(0, gross - totalDiscountDeduction);
+    return {
+      refundGross: gross,
+      refundDiscountDeduction: totalDiscountDeduction,
+      refundTotal: netRefund,
+    };
   }, [returnQty, transaction]);
 
   const originalPaymentMode = transaction.paymentMode || "CASH";
@@ -81,15 +103,39 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
   const refundDiffersFromOriginal = isUpiOriginal && isCashRefund;
 
   const handleReturn = () => {
+    const subtotal = Number(transaction.subtotal || 0);
+    const totalDiscount = Number(transaction.discount || 0);
+
     const itemsToReturn = (transaction.items || [])
       .map((item, idx) => {
-        const key = item.id !== undefined && item.id !== null ? String(item.id) : `item_${idx}`;
+        const key = `item_${idx}`;
         const rq = returnQty[key] || 0;
+        const billedQty = Number(item.qty || item.quantity || 1);
+        const originalPrice = Number(item.price || 0);
+        const lineSubtotal = originalPrice * billedQty;
+
+        const itemDiscShare =
+          item.discountShare !== undefined && item.discountShare !== null
+            ? Number(item.discountShare)
+            : subtotal > 0 && totalDiscount > 0
+            ? (lineSubtotal / subtotal) * totalDiscount
+            : 0;
+
+        const unitDiscount = billedQty > 0 ? itemDiscShare / billedQty : 0;
+        const netUnitPrice =
+          item.netPrice !== undefined && item.netPrice !== null
+            ? Number(item.netPrice)
+            : Math.max(0, originalPrice - unitDiscount);
+
         return {
           ...item,
+          itemIndex: idx,
           id: item.id !== undefined && item.id !== null ? item.id : key,
           returnQty: rq,
           returnedQty: rq,
+          unitDiscount,
+          netUnitPrice,
+          itemRefundAmount: rq * netUnitPrice,
         };
       })
       .filter((item) => item.returnQty > 0);
@@ -98,6 +144,7 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
       alert("Please select at least one item to return (Return Qty > 0).");
       return;
     }
+
 
     onReturnBill(transaction.billNo, itemsToReturn, refundMode, upiRefundRef, originalPaymentMode, refundTotal);
     onClose();
@@ -110,7 +157,7 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
       <div
         className="modal-content"
         style={{
-          maxWidth: "580px",
+          maxWidth: "680px",
           width: "100%",
           padding: "0",
           maxHeight: "90dvh",
@@ -138,7 +185,12 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
             </h2>
             <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
               Original payment: <strong style={{ color: "var(--accent-blue-light)" }}>{originalPaymentMode}</strong>
-              {transaction.upiRefNo && ` (Ref: ${transaction.upiRefNo})`}
+              {transaction.discount > 0 && (
+                <span style={{ color: "var(--accent-amber)", marginLeft: "8px", fontWeight: "700" }}>
+                  (Bill Discount: ₹{Number(transaction.discount).toFixed(2)} distributed to items)
+                </span>
+              )}
+              {transaction.upiRefNo && ` • Ref: ${transaction.upiRefNo}`}
             </div>
           </div>
           <button
@@ -164,14 +216,16 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
           {/* ── STEP 1: Select items to return ── */}
           <div>
             <div style={{ fontSize: "13px", fontWeight: "800", marginBottom: "8px", color: "var(--text-main)" }}>
-              Step 1 — Select Items to Return
+              Step 1 — Select Items to Return (Equal Distributed Discount Rate)
             </div>
-            <div style={{ maxHeight: "240px", overflowY: "auto", border: "1px solid var(--border-color)", borderRadius: "8px" }}>
-            <table className="custom-table" style={{ width: "100%" }}>
+            <div style={{ maxHeight: "260px", overflowY: "auto", border: "1px solid var(--border-color)", borderRadius: "8px" }}>
+            <table className="custom-table" style={{ width: "100%", fontSize: "12px" }}>
               <thead>
                 <tr>
                   <th>Item</th>
                   <th>Price</th>
+                  {transaction.discount > 0 && <th>Discount</th>}
+                  <th>Net Rate</th>
                   <th style={{ textAlign: "center" }}>Billed</th>
                   <th style={{ textAlign: "center" }}>Return Qty</th>
                   <th style={{ textAlign: "right" }}>Refund</th>
@@ -179,18 +233,44 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
               </thead>
               <tbody>
                 {(transaction.items || []).map((item, idx) => {
-                  const key = item.id !== undefined && item.id !== null ? String(item.id) : `item_${idx}`;
+                  const key = `item_${idx}`;
                   const billedQty = Number(item.qty || item.quantity || 1);
                   const alreadyReturned = Number(item.returnedQty || 0);
                   const maxAvailableToReturn = Math.max(0, billedQty - alreadyReturned);
                   const rq = returnQty[key] || 0;
-                  const price = Number(item.price || 0);
-                  const itemRefund = rq * price;
+
+                  const originalPrice = Number(item.price || 0);
+                  const lineSubtotal = originalPrice * billedQty;
+                  const subtotal = Number(transaction.subtotal || 0);
+                  const totalDiscount = Number(transaction.discount || 0);
+
+                  const itemDiscShare =
+                    item.discountShare !== undefined && item.discountShare !== null
+                      ? Number(item.discountShare)
+                      : subtotal > 0 && totalDiscount > 0
+                      ? (lineSubtotal / subtotal) * totalDiscount
+                      : 0;
+
+                  const unitDiscount = billedQty > 0 ? itemDiscShare / billedQty : 0;
+                  const netUnitPrice =
+                    item.netPrice !== undefined && item.netPrice !== null
+                      ? Number(item.netPrice)
+                      : Math.max(0, originalPrice - unitDiscount);
+
+                  const itemNetRefund = rq * netUnitPrice;
 
                   return (
                     <tr key={key}>
                       <td style={{ fontWeight: "600" }}>{item.name}</td>
-                      <td>₹{price.toFixed(2)}</td>
+                      <td>₹{originalPrice.toFixed(2)}</td>
+                      {transaction.discount > 0 && (
+                        <td style={{ color: "var(--accent-amber)", fontSize: "11px" }}>
+                          -₹{unitDiscount.toFixed(2)}/pc
+                        </td>
+                      )}
+                      <td style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
+                        ₹{netUnitPrice.toFixed(2)}
+                      </td>
                       <td style={{ textAlign: "center" }}>
                         {billedQty}
                         {alreadyReturned > 0 && (
@@ -257,9 +337,9 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
                       </td>
                       <td style={{
                         textAlign: "right", fontWeight: "700",
-                        color: itemRefund > 0 ? "var(--accent-rose)" : "var(--text-muted)",
+                        color: itemNetRefund > 0 ? "var(--accent-rose)" : "var(--text-muted)",
                       }}>
-                        {itemRefund > 0 ? `-₹${itemRefund.toFixed(2)}` : "—"}
+                        {itemNetRefund > 0 ? `-₹${itemNetRefund.toFixed(2)}` : "—"}
                       </td>
                     </tr>
                   );
@@ -268,23 +348,35 @@ export default function ReturnModal({ isOpen, onClose, transaction, onReturnBill
             </table>
             </div>
 
-            {/* Refund total preview */}
+            {/* Refund total breakdown preview */}
             {refundTotal > 0 && (
               <div style={{
-                display: "flex", justifyContent: "flex-end", alignItems: "center",
-                gap: "8px", marginTop: "10px",
-                padding: "10px 14px",
+                display: "flex", flexDirection: "column", gap: "4px",
+                marginTop: "10px", padding: "10px 14px",
                 background: "rgba(248,113,113,0.08)",
                 border: "1px solid rgba(248,113,113,0.25)",
                 borderRadius: "8px",
               }}>
-                <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>Total Refund Amount:</span>
-                <span style={{ fontSize: "17px", fontWeight: "900", color: "#f87171" }}>
-                  ₹{refundTotal.toFixed(2)}
-                </span>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--text-muted)" }}>
+                  <span>Gross Value of Returned Items:</span>
+                  <span>₹{refundGross.toFixed(2)}</span>
+                </div>
+                {refundDiscountDeduction > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--accent-amber)" }}>
+                    <span>Proportional Discount Deducted:</span>
+                    <span>-₹{refundDiscountDeduction.toFixed(2)}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed rgba(248,113,113,0.3)", paddingTop: "6px", marginTop: "2px" }}>
+                  <span style={{ fontSize: "13px", fontWeight: "700", color: "var(--text-main)" }}>Total Net Refund Payable:</span>
+                  <span style={{ fontSize: "17px", fontWeight: "900", color: "#f87171" }}>
+                    ₹{refundTotal.toFixed(2)}
+                  </span>
+                </div>
               </div>
             )}
           </div>
+
 
           {/* ── STEP 2: Select how to give refund ── */}
           <div>

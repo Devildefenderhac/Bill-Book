@@ -210,7 +210,7 @@ export default function OwnerDashboard({
     }
 
     if (!cleanUpiId || !cleanUpiId.includes("@") || cleanUpiId.length < 5) {
-      alert("⚠️ Store UPI VPA ID is compulsory!\nPlease enter a valid UPI ID (e.g. shopname@upi, 9876543210@paytm) so customer QR codes generate properly.");
+      alert("⚠️ Store UPI VPA ID is compulsory!\nPlease enter a valid UPI ID (e.g. shopname@upi) so customer QR codes generate properly.");
       return;
     }
 
@@ -1812,12 +1812,16 @@ export default function OwnerDashboard({
                       ) : tx.status === "PARTIALLY_RETURNED" ? (
                         <div>
                           <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
-                            Net: ₹{(tx.grandTotal || 0).toFixed(2)}
+                            Net Kept: ₹{Math.max(0, (tx.grandTotal || 0) - (tx.refundAmount || 0)).toFixed(2)}
                           </div>
                           <div style={{ fontSize: "10px", color: "var(--accent-amber)", fontWeight: "600" }}>
-                            Refunded: ₹{(tx.refundAmount || (tx.items || []).reduce((s, i) => s + ((i.returnedQty || 0) * (i.price || 0)), 0)).toFixed(2)}
+                            Refunded: -₹{(tx.refundAmount || (tx.items || []).reduce((s, i) => s + ((i.returnedQty || 0) * (i.netUnitPrice || i.price || 0)), 0)).toFixed(2)}
+                          </div>
+                          <div style={{ fontSize: "9.5px", color: "var(--text-muted)" }}>
+                            Original: ₹{(tx.grandTotal || 0).toFixed(2)}
                           </div>
                         </div>
+
                       ) : (tx.paymentStatus === "PENDING" || tx.paymentStatus === "PARTIALLY_PAID" || tx.paymentMode === "PENDING" || (tx.pendingAmount !== undefined && tx.pendingAmount > 0)) ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
                           <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
@@ -1975,7 +1979,7 @@ export default function OwnerDashboard({
                             >
                               Cancel
                             </button>
-                            {tx.type !== 'RETURN' && (
+                            {tx.type !== 'RETURN' && tx.status !== 'RETURNED' && (
                               <button
                                 onClick={() => setReturnModalTransaction(tx)}
                                 style={{
@@ -1991,6 +1995,7 @@ export default function OwnerDashboard({
                                 Return
                               </button>
                             )}
+
                           </>
                         )}
                       </div>
@@ -2660,7 +2665,7 @@ export default function OwnerDashboard({
                   type="text"
                   required
                   className="form-control"
-                  placeholder="e.g. shopname@upi or 9876543210@paytm"
+                  placeholder="e.g. shopname@upi"
                   value={draftSettings.upiId || ""}
                   onChange={(e) => updateDraftSettings({ upiId: e.target.value })}
                   style={{ borderColor: (!draftSettings.upiId || !draftSettings.upiId.trim() || !draftSettings.upiId.includes("@")) ? "var(--accent-rose)" : undefined }}

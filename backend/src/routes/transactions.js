@@ -233,7 +233,7 @@ router.post('/uncancel', (req, res) => {
   });
 });
 
-// RETURN transaction items
+// RETURN transaction items (Full or Partial Item Returns)
 router.post('/return', (req, res) => {
   const { billNo, returnedItems, workerName, refundMode, upiRefundRef, originalPaymentMode, refundTotal } = req.body;
   const db = getDb();
@@ -242,14 +242,43 @@ router.post('/return', (req, res) => {
     if (err || !row) return res.status(404).json({ error: 'Transaction not found' });
     const originalTx = parseTx(row);
 
-    const totalBilledQty = (originalTx.items || []).reduce((s, i) => s + (i.qty || 1), 0);
-    const totalReturnedQty = (returnedItems || []).reduce((s, i) => s + Number(i.returnQty || i.returnedQty || i.quantity || 1), 0);
-    const newStatus = totalReturnedQty >= totalBilledQty ? 'RETURNED' : 'PARTIALLY_RETURNED';
+    const updatedItems = (originalTx.items || []).map((item, idx) => {
+      const ret = (returnedItems || []).find((r) => {
+        if (r.itemIndex !== undefined && r.itemIndex !== null) {
+          return Number(r.itemIndex) === idx;
+        }
+        if (r.id && item.id && String(r.id) === String(item.id)) {
+          return true;
+        }
+        return false;
+      });
 
-    const updatedItems = (originalTx.items || []).map((item) => {
-      const ret = (returnedItems || []).find((r) => r.id === item.id);
-      return ret ? { ...item, returnedQty: Number(ret.returnQty || ret.returnedQty || 1) } : item;
+      if (ret) {
+        const addedRetQty = Number(ret.returnQty || ret.returnedQty || 1);
+        const prevRetQty = Number(item.returnedQty || 0);
+        return {
+          ...item,
+          returnedQty: Math.min(Number(item.qty || item.quantity || 1), prevRetQty + addedRetQty),
+        };
+      }
+      return item;
     });
+
+
+    const totalBilledQty = (originalTx.items || []).reduce((s, i) => s + Number(i.qty || i.quantity || 1), 0);
+    const totalAllReturnedQty = updatedItems.reduce((s, i) => s + Number(i.returnedQty || 0), 0);
+    const newStatus =
+      totalAllReturnedQty >= totalBilledQty
+        ? 'RETURNED'
+        : totalAllReturnedQty > 0
+        ? 'PARTIALLY_RETURNED'
+        : (originalTx.status || 'COMPLETED');
+
+    const calculatedRefund = Number(refundTotal) || (returnedItems || []).reduce((s, i) => {
+      const rQty = Number(i.returnQty || i.returnedQty || 1);
+      const rPrice = Number(i.netUnitPrice || i.netPrice || i.price || 0);
+      return s + (rQty * rPrice);
+    }, 0);
 
     const returnDetails = {
       returnedItems,
@@ -257,13 +286,29 @@ router.post('/return', (req, res) => {
       refundMode,
       upiRefundRef,
       originalPaymentMode,
-      refundAmount: Number(refundTotal) || (returnedItems || []).reduce((s, i) => s + (Number(i.returnQty || i.returnedQty || 1) * (Number(i.price) || 0)), 0),
+      refundAmount: calculatedRefund,
       timestamp: new Date().toISOString(),
     };
 
+    // If bill was Udhar / Pending, automatically deduct refund amount from pending balance
+    let newPendingAmount = originalTx.pendingAmount;
+    let newPaymentStatus = originalTx.paymentStatus;
+    if (
+      originalTx.paymentStatus === 'PENDING' ||
+      originalTx.paymentStatus === 'PARTIALLY_PAID' ||
+      originalTx.paymentMode === 'PENDING' ||
+      (originalTx.pendingAmount !== undefined && originalTx.pendingAmount > 0)
+    ) {
+      const currentPending = Number(originalTx.pendingAmount !== undefined ? originalTx.pendingAmount : originalTx.grandTotal) || 0;
+      newPendingAmount = Math.max(0, currentPending - calculatedRefund);
+      if (newPendingAmount === 0) {
+        newPaymentStatus = 'PAID';
+      }
+    }
+
     db.run(
-      "UPDATE transactions SET status = ?, items = ?, returnDetails = ? WHERE billNo = ?",
-      [newStatus, JSON.stringify(updatedItems), JSON.stringify(returnDetails), billNo],
+      "UPDATE transactions SET status = ?, items = ?, returnDetails = ?, pendingAmount = ?, paymentStatus = ? WHERE billNo = ?",
+      [newStatus, JSON.stringify(updatedItems), JSON.stringify(returnDetails), newPendingAmount, newPaymentStatus, billNo],
       function (uErr) {
         if (uErr) return res.status(500).json({ error: uErr.message });
 
@@ -271,7 +316,7 @@ router.post('/return', (req, res) => {
         if (Array.isArray(returnedItems)) {
           returnedItems.forEach((item) => {
             const qtyToRestore = Number(item.returnQty || item.returnedQty || item.quantity || item.qty || 1);
-            if (item.id) {
+            if (item.id && typeof item.id === 'number') {
               db.run('UPDATE products SET stock = stock + ? WHERE id = ?', [qtyToRestore, item.id]);
             }
           });
@@ -282,10 +327,12 @@ router.post('/return', (req, res) => {
           status: newStatus,
           items: updatedItems,
           returnDetails,
-          refundAmount: returnDetails.refundAmount,
+          refundAmount: calculatedRefund,
           refundMode,
           upiRefundRef,
           originalPaymentMode,
+          pendingAmount: newPendingAmount,
+          paymentStatus: newPaymentStatus,
         };
 
         saveLiveSnapshot(db);
@@ -294,6 +341,7 @@ router.post('/return', (req, res) => {
     );
   });
 });
+
 
 // SETTLE pending transaction
 router.post('/settle', (req, res) => {

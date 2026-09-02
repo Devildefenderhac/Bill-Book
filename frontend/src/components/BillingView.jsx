@@ -230,8 +230,32 @@ export default function BillingView({
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+
+    // Distribute overall bill discount proportionally across all cart items
+    const enrichedCart = cart.map((item) => {
+      const itemQty = Number(item.qty || item.quantity || 1);
+      const itemPrice = Number(item.price || 0);
+      const itemSubtotal = itemPrice * itemQty;
+      const discountShare =
+        subtotal > 0 && discountVal > 0
+          ? Math.round((itemSubtotal / subtotal) * discountVal * 100) / 100
+          : 0;
+      const netTotal = Math.max(0, itemSubtotal - discountShare);
+      const netPrice = itemQty > 0 ? Math.round((netTotal / itemQty) * 100) / 100 : itemPrice;
+
+      return {
+        ...item,
+        price: itemPrice,
+        qty: itemQty,
+        total: itemSubtotal,
+        discountShare,
+        netPrice,
+        netTotal,
+      };
+    });
+
     onInitiatePayment({
-      cart,
+      cart: enrichedCart,
       subtotal,
       discount: discountVal,
       grandTotal,
@@ -240,6 +264,7 @@ export default function BillingView({
       billNo: currentBillNo,
     });
   };
+
 
   const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
 

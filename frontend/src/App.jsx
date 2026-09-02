@@ -472,14 +472,45 @@ export default function App() {
     const workerName = currentUser ? currentUser.name : "Store Owner (Admin)";
 
     const originalTx = transactions.find((t) => t.billNo === billNo);
-    const totalBilledQty = (originalTx?.items || []).reduce((s, i) => s + (i.qty || 1), 0);
-    const totalReturnedQty = (returnedItems || []).reduce((s, i) => s + Number(i.returnQty || i.returnedQty || i.quantity || 1), 0);
-    const returnStatus = totalReturnedQty >= totalBilledQty ? "RETURNED" : "PARTIALLY_RETURNED";
+    if (!originalTx) return;
 
-    const updatedItems = (originalTx?.items || []).map((item) => {
-      const ret = (returnedItems || []).find((r) => r.id === item.id);
-      return ret ? { ...item, returnedQty: Number(ret.returnQty || ret.returnedQty || 1) } : item;
+    const updatedItems = (originalTx.items || []).map((item, idx) => {
+      const ret = (returnedItems || []).find((r) => {
+        if (r.itemIndex !== undefined && r.itemIndex !== null) {
+          return Number(r.itemIndex) === idx;
+        }
+        if (r.id && item.id && String(r.id) === String(item.id)) {
+          return true;
+        }
+        return false;
+      });
+
+      if (ret) {
+        const addedRetQty = Number(ret.returnQty || ret.returnedQty || 1);
+        const prevRetQty = Number(item.returnedQty || 0);
+        return {
+          ...item,
+          returnedQty: Math.min(Number(item.qty || item.quantity || 1), prevRetQty + addedRetQty),
+        };
+      }
+      return item;
     });
+
+
+    const totalBilledQty = (originalTx.items || []).reduce((s, i) => s + Number(i.qty || i.quantity || 1), 0);
+    const totalAllReturnedQty = updatedItems.reduce((s, i) => s + Number(i.returnedQty || 0), 0);
+    const returnStatus =
+      totalAllReturnedQty >= totalBilledQty
+        ? "RETURNED"
+        : totalAllReturnedQty > 0
+        ? "PARTIALLY_RETURNED"
+        : (originalTx.status || "COMPLETED");
+
+    const calculatedRefund = Number(refundTotal) || (returnedItems || []).reduce((s, i) => {
+      const rQty = Number(i.returnQty || i.returnedQty || 1);
+      const rPrice = Number(i.netUnitPrice || i.netPrice || i.price || 0);
+      return s + (rQty * rPrice);
+    }, 0);
 
     const returnDetailsObj = {
       returnedItems,
@@ -487,21 +518,38 @@ export default function App() {
       refundMode,
       upiRefundRef,
       originalPaymentMode,
-      refundAmount: refundTotal,
+      refundAmount: calculatedRefund,
       timestamp: new Date().toISOString(),
     };
 
-    const res = await returnTransaction(billNo, returnedItems, workerName, refundMode, upiRefundRef, originalPaymentMode, refundTotal);
+    let newPendingAmount = originalTx.pendingAmount;
+    let newPaymentStatus = originalTx.paymentStatus;
+    if (
+      originalTx.paymentStatus === "PENDING" ||
+      originalTx.paymentStatus === "PARTIALLY_PAID" ||
+      originalTx.paymentMode === "PENDING" ||
+      (originalTx.pendingAmount !== undefined && originalTx.pendingAmount > 0)
+    ) {
+      const currentPending = Number(originalTx.pendingAmount !== undefined ? originalTx.pendingAmount : originalTx.grandTotal) || 0;
+      newPendingAmount = Math.max(0, currentPending - calculatedRefund);
+      if (newPendingAmount === 0) {
+        newPaymentStatus = "PAID";
+      }
+    }
+
+    const res = await returnTransaction(billNo, returnedItems, workerName, refundMode, upiRefundRef, originalPaymentMode, calculatedRefund);
 
     const returnTxToPrint = res?.originalTx || res?.returnTx || {
       ...originalTx,
       status: returnStatus,
       items: updatedItems,
       returnDetails: returnDetailsObj,
-      refundAmount: refundTotal,
+      refundAmount: calculatedRefund,
       refundMode,
       upiRefundRef,
       originalPaymentMode,
+      pendingAmount: newPendingAmount,
+      paymentStatus: newPaymentStatus,
     };
 
     triggerPrint(returnTxToPrint);
@@ -514,10 +562,12 @@ export default function App() {
             status: returnStatus,
             items: updatedItems,
             returnDetails: returnDetailsObj,
-            refundAmount: refundTotal,
+            refundAmount: calculatedRefund,
             refundMode,
             upiRefundRef,
             originalPaymentMode,
+            pendingAmount: newPendingAmount,
+            paymentStatus: newPaymentStatus,
           };
         }
         return t;
@@ -526,9 +576,9 @@ export default function App() {
       return updated;
     });
 
-    performFullCloudSync().catch(() => {});
     loadLiveData(true);
   };
+
 
   const handleSwitchAccount = (user) => {
     setCurrentUser(user);

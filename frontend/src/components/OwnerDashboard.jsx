@@ -90,6 +90,7 @@ export default function OwnerDashboard({
     username: MASTER_ADMIN_USER,
     password: "",
   });
+  const [isMasterProfileDirty, setIsMasterProfileDirty] = useState(false);
   const [masterProfileSaved, setMasterProfileSaved] = useState(false);
 
   const currentMasterUsername = useMemo(() => {
@@ -128,17 +129,20 @@ export default function OwnerDashboard({
   }, [masterProfileForm.username, workers]);
 
   useEffect(() => {
-    const masterObj = (workers || []).find(
-      (w) => w.role === "master_admin" || w.id === MASTER_ADMIN_ID || w.username === MASTER_ADMIN_USER
-    );
-    if (masterObj) {
-      setMasterProfileForm({
-        name: masterObj.name || MASTER_ADMIN_NAME,
-        username: masterObj.username || MASTER_ADMIN_USER,
-        password: "",
-      });
+    if (!isMasterProfileDirty) {
+      const masterObj = (workers || []).find(
+        (w) => w.role === "master_admin" || w.id === MASTER_ADMIN_ID || w.username === MASTER_ADMIN_USER
+      );
+      if (masterObj) {
+        setMasterProfileForm({
+          name: masterObj.name || MASTER_ADMIN_NAME,
+          username: masterObj.username || MASTER_ADMIN_USER,
+          password: "",
+        });
+      }
     }
-  }, [workers]);
+  }, [workers, isMasterProfileDirty]);
+
 
   // Factory Reset state
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -167,20 +171,64 @@ export default function OwnerDashboard({
     }
   };
 
-  // Draft state for Settings form — only saved when user clicks Save
-  const [draftSettings, setDraftSettings] = useState(settings);
+  // Draft state for Settings form with active editing protection
+  const [draftSettings, setDraftSettings] = useState(settings || {});
+  const [isSettingsDirty, setIsSettingsDirty] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
-  // Sync draft when parent settings load from backend
+  // Sync draft ONLY when not actively editing/typing
   useEffect(() => {
-    setDraftSettings(settings);
-  }, [settings]);
+    if (!isSettingsDirty && settings) {
+      setDraftSettings(settings);
+    }
+  }, [settings, isSettingsDirty]);
+
+  const updateDraftSettings = (patch) => {
+    setIsSettingsDirty(true);
+    setDraftSettings((prev) => ({ ...prev, ...patch }));
+  };
 
   const handleSaveSettings = async () => {
-    await onUpdateSettings(draftSettings);
+    const cleanStoreName = (draftSettings.storeName || "").trim();
+    const cleanAddress = (draftSettings.address || "").trim();
+    const cleanPhone = (draftSettings.phone || "").trim();
+    const cleanUpiId = (draftSettings.upiId || "").trim();
+
+    if (!cleanStoreName) {
+      alert("⚠️ Store Name is compulsory!\nPlease enter your Shopping Mall / Store Name (e.g. Royal Fashion Mall).");
+      return;
+    }
+
+    if (!cleanAddress) {
+      alert("⚠️ Mall Address is compulsory!\nPlease enter your store location/address for receipts and invoices.");
+      return;
+    }
+
+    if (cleanPhone.length !== 10) {
+      alert(`⚠️ Contact Phone is compulsory and must be exactly 10 digits!\nCurrent digits: ${cleanPhone.length}/10`);
+      return;
+    }
+
+    if (!cleanUpiId || !cleanUpiId.includes("@") || cleanUpiId.length < 5) {
+      alert("⚠️ Store UPI VPA ID is compulsory!\nPlease enter a valid UPI ID (e.g. shopname@upi, 9876543210@paytm) so customer QR codes generate properly.");
+      return;
+    }
+
+    const payload = {
+      ...draftSettings,
+      storeName: cleanStoreName,
+      address: cleanAddress,
+      phone: cleanPhone,
+      upiId: cleanUpiId,
+    };
+
+    await onUpdateSettings(payload);
+    setIsSettingsDirty(false);
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2500);
   };
+
+
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -2118,6 +2166,7 @@ export default function OwnerDashboard({
                   };
 
                   await onSaveWorker(updatedMaster);
+                  setIsMasterProfileDirty(false);
                   setMasterProfileSaved(true);
 
                   if (isUsernameChanged || isPasswordChanged) {
@@ -2137,7 +2186,10 @@ export default function OwnerDashboard({
                     className="form-control"
                     placeholder="e.g. Devil Master Admin"
                     value={masterProfileForm.name}
-                    onChange={(e) => setMasterProfileForm({ ...masterProfileForm, name: formatAlphabetTitleCase(e.target.value) })}
+                    onChange={(e) => {
+                      setIsMasterProfileDirty(true);
+                      setMasterProfileForm({ ...masterProfileForm, name: formatAlphabetTitleCase(e.target.value) });
+                    }}
                   />
                 </div>
                 <div>
@@ -2148,7 +2200,10 @@ export default function OwnerDashboard({
                     className="form-control"
                     placeholder="e.g. devIl7061"
                     value={masterProfileForm.username}
-                    onChange={(e) => setMasterProfileForm({ ...masterProfileForm, username: e.target.value.trim() })}
+                    onChange={(e) => {
+                      setIsMasterProfileDirty(true);
+                      setMasterProfileForm({ ...masterProfileForm, username: e.target.value.trim() });
+                    }}
                     style={{ borderColor: isMasterUsernameDuplicate ? "var(--accent-rose)" : undefined }}
                   />
                   {isMasterUsernameDuplicate && (
@@ -2165,9 +2220,13 @@ export default function OwnerDashboard({
                       className="form-control"
                       placeholder="(Leave blank to keep current)"
                       value={masterProfileForm.password}
-                      onChange={(e) => setMasterProfileForm({ ...masterProfileForm, password: e.target.value })}
+                      onChange={(e) => {
+                        setIsMasterProfileDirty(true);
+                        setMasterProfileForm({ ...masterProfileForm, password: e.target.value });
+                      }}
                       style={{ paddingRight: "38px" }}
                     />
+
                     <button
                       type="button"
                       onClick={() => setShowMasterPassword(!showMasterPassword)}
@@ -2523,27 +2582,43 @@ export default function OwnerDashboard({
 
           <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "10px" }}>
             <div className="form-group">
-              <label className="form-label">Shopping Mall / Store Name</label>
+              <label className="form-label">Shopping Mall / Store Name (Compulsory) *</label>
               <input
                 type="text"
+                required
                 className="form-control"
                 placeholder="e.g. Royal Fashion Mall"
                 value={draftSettings.storeName || ""}
-                onChange={(e) => setDraftSettings({ ...draftSettings, storeName: formatAlphabetTitleCase(e.target.value) })}
+                onChange={(e) => updateDraftSettings({ storeName: formatAlphabetTitleCase(e.target.value) })}
+                style={{ borderColor: (!draftSettings.storeName || !draftSettings.storeName.trim()) ? "var(--accent-rose)" : undefined }}
               />
-              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
-                Only alphabets allowed (Auto-capitalized: e.g. Royal Fashion Mall)
-              </div>
+              {(!draftSettings.storeName || !draftSettings.storeName.trim()) ? (
+                <div style={{ fontSize: "10px", color: "var(--accent-rose)", marginTop: "2px", fontWeight: "600" }}>
+                  ⚠️ Shopping Mall / Store Name is compulsory
+                </div>
+              ) : (
+                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
+                  Only alphabets allowed (Auto-capitalized: e.g. Royal Fashion Mall)
+                </div>
+              )}
             </div>
 
             <div className="form-group">
-              <label className="form-label">Mall Address & Location</label>
+              <label className="form-label">Mall Address & Location (Compulsory) *</label>
               <input
                 type="text"
+                required
                 className="form-control"
+                placeholder="e.g. Shop 12, Ground Floor, Fashion Mall, Mumbai"
                 value={draftSettings.address || ""}
-                onChange={(e) => setDraftSettings({ ...draftSettings, address: e.target.value })}
+                onChange={(e) => updateDraftSettings({ address: e.target.value })}
+                style={{ borderColor: (!draftSettings.address || !draftSettings.address.trim()) ? "var(--accent-rose)" : undefined }}
               />
+              {(!draftSettings.address || !draftSettings.address.trim()) && (
+                <div style={{ fontSize: "10px", color: "var(--accent-rose)", marginTop: "2px", fontWeight: "600" }}>
+                  ⚠️ Mall Address is compulsory for invoices and receipts
+                </div>
+              )}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -2556,7 +2631,7 @@ export default function OwnerDashboard({
                   className="form-control"
                   placeholder="e.g. 9876543210"
                   value={draftSettings.phone || ""}
-                  onChange={(e) => setDraftSettings({ ...draftSettings, phone: format10DigitPhone(e.target.value) })}
+                  onChange={(e) => updateDraftSettings({ phone: format10DigitPhone(e.target.value) })}
                   style={{ borderColor: (!draftSettings.phone || draftSettings.phone.length < 10) ? "var(--accent-rose)" : undefined }}
                 />
                 {(!draftSettings.phone || draftSettings.phone.length < 10) && (
@@ -2571,22 +2646,30 @@ export default function OwnerDashboard({
                 <input
                   type="text"
                   className="form-control"
+                  placeholder="e.g. 27AAAAA0000A1Z5"
                   value={draftSettings.gstin || ""}
-                  onChange={(e) => setDraftSettings({ ...draftSettings, gstin: e.target.value })}
+                  onChange={(e) => updateDraftSettings({ gstin: e.target.value })}
                 />
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <div className="form-group">
-                <label className="form-label">Store UPI VPA ID (for Auto QR)</label>
+                <label className="form-label">Store UPI VPA ID (Compulsory for Auto QR) *</label>
                 <input
                   type="text"
+                  required
                   className="form-control"
-                  placeholder="e.g. shopname@upi"
+                  placeholder="e.g. shopname@upi or 9876543210@paytm"
                   value={draftSettings.upiId || ""}
-                  onChange={(e) => setDraftSettings({ ...draftSettings, upiId: e.target.value })}
+                  onChange={(e) => updateDraftSettings({ upiId: e.target.value })}
+                  style={{ borderColor: (!draftSettings.upiId || !draftSettings.upiId.trim() || !draftSettings.upiId.includes("@")) ? "var(--accent-rose)" : undefined }}
                 />
+                {(!draftSettings.upiId || !draftSettings.upiId.trim() || !draftSettings.upiId.includes("@")) && (
+                  <div style={{ fontSize: "10px", color: "var(--accent-rose)", marginTop: "2px", fontWeight: "600" }}>
+                    ⚠️ Valid Store UPI VPA ID is compulsory (must contain @, e.g. shopname@upi)
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
@@ -2594,7 +2677,7 @@ export default function OwnerDashboard({
                 <select
                   className="form-control"
                   value={draftSettings.receiptPaper || "80mm"}
-                  onChange={(e) => setDraftSettings({ ...draftSettings, receiptPaper: e.target.value })}
+                  onChange={(e) => updateDraftSettings({ receiptPaper: e.target.value })}
                 >
                   <option value="80mm">Thermal 80mm POS Roll</option>
                   <option value="58mm">Thermal 58mm POS Mini Roll</option>
@@ -2622,7 +2705,7 @@ export default function OwnerDashboard({
                     />
                     <button
                       type="button"
-                      onClick={() => setDraftSettings({ ...draftSettings, customQrImage: "" })}
+                      onClick={() => updateDraftSettings({ customQrImage: "" })}
                       style={{ fontSize: "11px", color: "var(--accent-rose)", background: "transparent" }}
                     >
                       Remove Custom QR
@@ -2659,7 +2742,7 @@ export default function OwnerDashboard({
                       if (!file) return;
                       const reader = new FileReader();
                       reader.onload = (evt) => {
-                        setDraftSettings({ ...draftSettings, customQrImage: evt.target.result });
+                        updateDraftSettings({ customQrImage: evt.target.result });
                       };
                       reader.readAsDataURL(file);
                     }}

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-02T17:54:25.258Z",
+  "timestamp": "2026-09-02T18:14:04.483Z",
   "workers": [
     {
       "id": "master-admin-01",
@@ -11,7 +11,7 @@
       "counter": "Master Dashboard",
       "canCancelBills": 1,
       "canAccessMarketing": 1,
-      "created_at": "2026-09-02 17:54:15"
+      "created_at": "2026-09-02 18:13:44"
     },
     {
       "id": "worker-1788086310271",
@@ -23,7 +23,7 @@
       "counter": "1",
       "canCancelBills": 0,
       "canAccessMarketing": 0,
-      "created_at": "2026-09-02 17:54:15"
+      "created_at": "2026-09-02 18:13:44"
     },
     {
       "id": "worker-1788115524741",
@@ -35,7 +35,7 @@
       "counter": "Admin 1",
       "canCancelBills": 1,
       "canAccessMarketing": 0,
-      "created_at": "2026-09-02 17:54:15"
+      "created_at": "2026-09-02 18:13:44"
     },
     {
       "id": "worker-1788178567974",
@@ -47,7 +47,7 @@
       "counter": "2",
       "canCancelBills": 0,
       "canAccessMarketing": 0,
-      "created_at": "2026-09-02 17:54:15"
+      "created_at": "2026-09-02 18:13:44"
     }
   ],
   "transactions": [
@@ -74,7 +74,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:15",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -100,7 +100,7 @@
       "printCount": 2,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:15",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -126,7 +126,7 @@
       "printCount": 2,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:15",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -152,7 +152,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:15",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -178,7 +178,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:15",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -204,7 +204,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:15",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -230,7 +230,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:15",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -256,7 +256,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -282,7 +282,7 @@
       "printCount": 2,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -308,7 +308,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -334,7 +334,7 @@
       "printCount": 3,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -360,7 +360,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -386,7 +386,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -412,7 +412,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -438,7 +438,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -464,7 +464,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -490,7 +490,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -516,7 +516,7 @@
       "printCount": 1,
       "returnDetails": "{\"returnedItems\":[{\"id\":\"item-1788198834873-0.5644963244222803\",\"name\":\"Item 1\",\"price\":8000,\"qty\":1,\"total\":8000,\"returnQty\":1,\"returnedQty\":1}],\"returnedBy\":\"Suchit\",\"refundMode\":\"UPI\",\"upiRefundRef\":\"\",\"originalPaymentMode\":\"UPI\",\"refundAmount\":6000,\"timestamp\":\"2026-08-31T17:54:52.561Z\"}",
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -542,7 +542,7 @@
       "printCount": 1,
       "returnDetails": "{\"returnedItems\":[{\"id\":\"item-1788199162092-0.8850095749621858\",\"name\":\"Item 1\",\"price\":500,\"qty\":1,\"total\":500,\"returnQty\":1,\"returnedQty\":1}],\"returnedBy\":\"Suchit\",\"refundMode\":\"UPI\",\"upiRefundRef\":\"\",\"originalPaymentMode\":\"UPI\",\"refundAmount\":500,\"timestamp\":\"2026-08-31T18:01:15.807Z\"}",
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -568,7 +568,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -594,7 +594,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     },
     {
@@ -620,7 +620,7 @@
       "printCount": 1,
       "returnDetails": "{\"returnedItems\":[{\"id\":\"item-1788332138525-0.4187085480249694\",\"name\":\"Item 2\",\"price\":50,\"qty\":1,\"total\":50,\"returnQty\":1,\"returnedQty\":1},{\"id\":\"item-1788332140553-0.6382479352641405\",\"name\":\"Item 3\",\"price\":52,\"qty\":1,\"total\":52,\"returnQty\":1,\"returnedQty\":1}],\"returnedBy\":\"BALRAM\",\"refundMode\":\"UPI\",\"upiRefundRef\":\"\",\"originalPaymentMode\":\"UPI\",\"timestamp\":\"2026-09-02T06:56:40.420Z\"}",
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:54:16",
+      "created_at": "2026-09-02 18:13:44",
       "counter": "Counter 1"
     }
   ],
@@ -772,16 +772,16 @@
   ],
   "settings": {
     "id": 1,
-    "storeName": "HINDUSTAN  SHOPPING  MALL",
-    "tagline": "Premier Clothing & Apparel Store",
-    "address": "ENC::79a12ea62246259869e788bb69c1310d:f4ddde12b6a9bf18940e53f114fa8c1b4e328a12faca53b89123377e0cf00fbd7f48c13abacad2eac71cd3d1c52ce91f",
-    "city": "ENC::1c2ca10cb73ca170f9ab6956f0321e25:9902259d47b55dab78c707734b388c3de3d06e503f4ef63777a09f0b00b85af0",
-    "phone": "ENC::1b78daed81c40bae8c0815a5cb3e49de:b26c09dbbfa3a7cefd2c9f0f32060eef",
-    "gstin": "ENC::9c46c44fcc7a022d8fed1b3d083c4da6:de3246571ae49f5ab9d22fd43f7c7932",
-    "upiId": "ENC::333af0fde6316b3338c9b96442cda5c7:2923b14455fbb6150bc26d44c14d7cf614a7ece69aeb80e44abfc92417b6318d",
-    "upiName": "ENC::5501fb86e38cf569f9a0ef7137b8bbee:fe35698d2c168cf7f1b76a97ba791e14f8fd7f0eae494b76a088d1fab8dbf61c",
+    "storeName": "ROYAL FASHION MALL",
+    "tagline": "",
+    "address": "ENC::9fa67b413b0e4d2f520493dba85271b3:8ba79cc9eb10884c744da086f89bbf72f649bca86a13767ecea4d4025da3f57242001fb3d6a5af98d8c690e3867887d8",
+    "city": "",
+    "phone": "ENC::f935cbff98cb40607690ef50bd50cadb:15abd8a7b2b1479b92656cdd0d894582",
+    "gstin": "",
+    "upiId": "ENC::c299de7b1f6a2bee44597744254a79e2:089b46bbe88338be310ae9d2d7e70417",
+    "upiName": "",
     "billPrefix": "BILL-",
-    "receiptPaper": "58mm",
+    "receiptPaper": "80mm",
     "workerName": "Cashier Counter 1"
   }
 }

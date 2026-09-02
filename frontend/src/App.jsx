@@ -33,7 +33,6 @@ import {
   syncOfflineTransactions,
   enqueueOfflineTransaction,
   getOfflineQueueCount,
-  performFullCloudSync,
 } from "./utils/api";
 import { INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS, INITIAL_WORKERS } from "./data/initialData";
 import { secureLocalStorage, decryptEncryptedObject } from "./utils/storageCrypto";
@@ -149,7 +148,7 @@ export default function App() {
     }, 300);
   };
 
-  // Self-Healing Live Cloud Data Loader & Auto-Resync
+  // Authoritative Central Cloud Data Loader & Real-Time Sync Engine
   const loadLiveData = async (isSilent = false) => {
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
@@ -159,18 +158,10 @@ export default function App() {
     }
 
     try {
-      // 1. Flush offline queue if items exist
+      // 1. Drain offline-created bills to Central Cloud Database if reconnected
       await syncOfflineTransactions();
 
-      // 2. Perform bi-directional Cloud Sync when user manually triggers sync (or on initial load)
-      if (!isSilent) {
-        const syncRes = await performFullCloudSync();
-        if (syncRes && syncRes.message) {
-          showSyncToast(syncRes.message, syncRes.success ? "success" : "warning");
-        }
-      }
-
-      // 3. Fetch fresh live data in parallel from Central Cloud Database
+      // 2. Fetch fresh live state from Central Cloud Database (Single Source of Truth)
       const [apiProducts, apiNextBill, apiTx, apiSet, apiWorkers] = await Promise.all([
         fetchProducts(),
         fetchNextBillNumber(),
@@ -179,61 +170,28 @@ export default function App() {
         fetchWorkers(),
       ]);
 
-      const isBackendLive = apiTx !== null || apiProducts !== null;
+      const isBackendLive = apiTx !== null || apiProducts !== null || apiWorkers !== null;
 
-      // 4. Self-Healing Workers Sync: Merge and auto-restore custom accounts if cloud woke up empty
-      const localWorkers = secureLocalStorage.getItem("billbook_workers", INITIAL_WORKERS) || [];
-      let mergedWorkers = localWorkers;
-
-      if (Array.isArray(apiWorkers) && apiWorkers.length > 0) {
-        // Find any local custom worker not in cloud and restore it to cloud
-        const serverIds = new Set(apiWorkers.map((w) => w.id));
-        const missingOnServer = localWorkers.filter(
-          (w) => w && w.id && !serverIds.has(w.id) && w.id !== "master-admin-01"
-        );
-
-        if (missingOnServer.length > 0) {
-          console.log("🛡️ Self-healing: restoring custom workers to cloud database...", missingOnServer);
-          for (const missingW of missingOnServer) {
-            saveWorker(missingW).catch(() => {});
-          }
-        }
-
-        // Merge cloud workers + missing local workers
-        mergedWorkers = [...apiWorkers, ...missingOnServer];
+      // 3. Central Cloud is the Master Source of Truth: update state & cache directly
+      if (Array.isArray(apiWorkers)) {
+        setWorkers(apiWorkers);
+        secureLocalStorage.setItem("billbook_workers", apiWorkers);
       }
-
-      setWorkers(mergedWorkers);
-      secureLocalStorage.setItem("billbook_workers", mergedWorkers);
-
-      // 5. Self-Healing Transactions Sync: Merge and auto-restore bills
-      const localTxs = secureLocalStorage.getItem("billbook_transactions", []) || [];
-      let mergedTxs = localTxs;
 
       if (Array.isArray(apiTx)) {
-        const serverBillNos = new Set(apiTx.map((t) => t.billNo || t.id));
-        const missingTxsOnServer = localTxs.filter(
-          (t) => t && (t.billNo || t.id) && !serverBillNos.has(t.billNo || t.id)
-        );
-
-        if (missingTxsOnServer.length > 0) {
-          console.log("🛡️ Self-healing: restoring local transactions to cloud...", missingTxsOnServer.length);
-          for (const missingT of missingTxsOnServer) {
-            processSale(missingT).catch(() => {});
-          }
-        }
-
-        mergedTxs = [...apiTx, ...missingTxsOnServer];
+        setTransactions(apiTx);
+        secureLocalStorage.setItem("billbook_transactions", apiTx);
       }
 
-      setTransactions(mergedTxs);
-      secureLocalStorage.setItem("billbook_transactions", mergedTxs);
-
-      if (apiProducts) {
+      if (Array.isArray(apiProducts)) {
         setProducts(apiProducts);
         secureLocalStorage.setItem("billbook_products", apiProducts);
       }
-      if (apiNextBill) setCurrentBillNo(apiNextBill);
+
+      if (apiNextBill) {
+        setCurrentBillNo(apiNextBill);
+      }
+
       if (apiSet && Object.keys(apiSet).length > 0) {
         setSettings(apiSet);
         secureLocalStorage.setItem("billbook_settings", apiSet);
@@ -248,10 +206,10 @@ export default function App() {
         queueCount,
       });
     } catch (e) {
-      console.warn("Sync error:", e);
+      console.warn("Live sync notice:", e);
       setSyncState((prev) => ({ ...prev, status: "offline" }));
       if (!isSilent) {
-        showSyncToast("⚠️ Connection issue. Using offline store data.", "warning");
+        showSyncToast("⚠️ Connection offline. Operating with local store data.", "warning");
       }
     } finally {
       isSyncingRef.current = false;
@@ -259,27 +217,22 @@ export default function App() {
   };
 
 
-  // Continuous background polling, central cloud sync, and keep-alive ping
+  // Continuous real-time polling across all mall systems & keep-alive ping
   useEffect(() => {
-    // 1. Initial live load
+    // 1. Initial load
     loadLiveData(false);
 
-    // 2. Real-time background sync loop (every 6 seconds for instant cross-counter sync)
+    // 2. Real-time background sync loop (every 3.5 seconds across all 5 counters & Electron)
     const pollInterval = setInterval(() => {
       loadLiveData(true);
-    }, 6000);
+    }, 3500);
 
-    // 3. Background cloud sync loop for all systems (every 15 seconds)
-    const cloudSyncInterval = setInterval(() => {
-      performFullCloudSync().catch(() => {});
-    }, 15000);
-
-    // 4. Keep-alive ping to prevent Render cold start sleep (every 5 minutes)
+    // 3. Keep-alive ping to prevent Render cold start sleep (every 4 minutes)
     const keepAliveInterval = setInterval(() => {
       checkApiHealth();
-    }, 5 * 60 * 1000);
+    }, 4 * 60 * 1000);
 
-    // 5. Instant refresh on window focus / tab visibility / network reconnect
+    // 4. Instant refresh on window focus / tab visibility / network reconnect
     const handleFocus = () => loadLiveData(true);
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -296,13 +249,13 @@ export default function App() {
 
     return () => {
       clearInterval(pollInterval);
-      clearInterval(cloudSyncInterval);
       clearInterval(keepAliveInterval);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
     };
   }, []);
+
 
 
   const handleUpdateSettings = async (newSettings) => {

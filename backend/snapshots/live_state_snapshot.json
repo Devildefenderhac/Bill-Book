@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-02T17:35:54.390Z",
+  "timestamp": "2026-09-02T17:54:25.258Z",
   "workers": [
     {
       "id": "master-admin-01",
@@ -11,7 +11,7 @@
       "counter": "Master Dashboard",
       "canCancelBills": 1,
       "canAccessMarketing": 1,
-      "created_at": "2026-09-02 17:35:49"
+      "created_at": "2026-09-02 17:54:15"
     },
     {
       "id": "worker-1788086310271",
@@ -23,7 +23,7 @@
       "counter": "1",
       "canCancelBills": 0,
       "canAccessMarketing": 0,
-      "created_at": "2026-09-02 17:35:49"
+      "created_at": "2026-09-02 17:54:15"
     },
     {
       "id": "worker-1788115524741",
@@ -35,7 +35,7 @@
       "counter": "Admin 1",
       "canCancelBills": 1,
       "canAccessMarketing": 0,
-      "created_at": "2026-09-02 17:35:49"
+      "created_at": "2026-09-02 17:54:15"
     },
     {
       "id": "worker-1788178567974",
@@ -47,7 +47,7 @@
       "counter": "2",
       "canCancelBills": 0,
       "canAccessMarketing": 0,
-      "created_at": "2026-09-02 17:35:49"
+      "created_at": "2026-09-02 17:54:15"
     }
   ],
   "transactions": [
@@ -74,7 +74,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:15",
       "counter": "Counter 1"
     },
     {
@@ -100,7 +100,7 @@
       "printCount": 2,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:15",
       "counter": "Counter 1"
     },
     {
@@ -126,7 +126,7 @@
       "printCount": 2,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:15",
       "counter": "Counter 1"
     },
     {
@@ -152,7 +152,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:15",
       "counter": "Counter 1"
     },
     {
@@ -178,7 +178,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:15",
       "counter": "Counter 1"
     },
     {
@@ -204,7 +204,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:15",
       "counter": "Counter 1"
     },
     {
@@ -230,7 +230,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:15",
       "counter": "Counter 1"
     },
     {
@@ -256,7 +256,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -282,7 +282,7 @@
       "printCount": 2,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -308,7 +308,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -334,7 +334,7 @@
       "printCount": 3,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -360,7 +360,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -386,7 +386,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -412,7 +412,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -438,7 +438,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -464,7 +464,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -490,7 +490,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -516,7 +516,7 @@
       "printCount": 1,
       "returnDetails": "{\"returnedItems\":[{\"id\":\"item-1788198834873-0.5644963244222803\",\"name\":\"Item 1\",\"price\":8000,\"qty\":1,\"total\":8000,\"returnQty\":1,\"returnedQty\":1}],\"returnedBy\":\"Suchit\",\"refundMode\":\"UPI\",\"upiRefundRef\":\"\",\"originalPaymentMode\":\"UPI\",\"refundAmount\":6000,\"timestamp\":\"2026-08-31T17:54:52.561Z\"}",
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -542,7 +542,7 @@
       "printCount": 1,
       "returnDetails": "{\"returnedItems\":[{\"id\":\"item-1788199162092-0.8850095749621858\",\"name\":\"Item 1\",\"price\":500,\"qty\":1,\"total\":500,\"returnQty\":1,\"returnedQty\":1}],\"returnedBy\":\"Suchit\",\"refundMode\":\"UPI\",\"upiRefundRef\":\"\",\"originalPaymentMode\":\"UPI\",\"refundAmount\":500,\"timestamp\":\"2026-08-31T18:01:15.807Z\"}",
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -568,7 +568,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -594,7 +594,7 @@
       "printCount": 1,
       "returnDetails": null,
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     },
     {
@@ -620,7 +620,7 @@
       "printCount": 1,
       "returnDetails": "{\"returnedItems\":[{\"id\":\"item-1788332138525-0.4187085480249694\",\"name\":\"Item 2\",\"price\":50,\"qty\":1,\"total\":50,\"returnQty\":1,\"returnedQty\":1},{\"id\":\"item-1788332140553-0.6382479352641405\",\"name\":\"Item 3\",\"price\":52,\"qty\":1,\"total\":52,\"returnQty\":1,\"returnedQty\":1}],\"returnedBy\":\"BALRAM\",\"refundMode\":\"UPI\",\"upiRefundRef\":\"\",\"originalPaymentMode\":\"UPI\",\"timestamp\":\"2026-09-02T06:56:40.420Z\"}",
       "settlementDetails": null,
-      "created_at": "2026-09-02 17:35:49",
+      "created_at": "2026-09-02 17:54:16",
       "counter": "Counter 1"
     }
   ],

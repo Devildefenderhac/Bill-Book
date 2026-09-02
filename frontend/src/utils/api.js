@@ -580,3 +580,40 @@ export async function testThermalPrinter() {
     return { success: false, error: e.message };
   }
 }
+
+// ── SMART TRANSACTION STATUS & REFUND RESOLVER ──
+export function getEffectiveTxStatus(tx) {
+  if (!tx) return "COMPLETED";
+  if (tx.status === "CANCELLED") return "CANCELLED";
+
+  const totalBilledQty = (tx.items || []).reduce((s, i) => s + Number(i.qty || i.quantity || 1), 0);
+  const totalReturnedQty = (tx.items || []).reduce((s, i) => s + Number(i.returnedQty || 0), 0) ||
+    (tx.returnDetails?.returnedItems || []).reduce((s, i) => s + Number(i.returnQty || i.returnedQty || 1), 0);
+
+  if (totalReturnedQty > 0) {
+    if (totalReturnedQty >= totalBilledQty && totalBilledQty > 0) {
+      return "RETURNED";
+    }
+    return "PARTIALLY_RETURNED";
+  }
+  return tx.status || "COMPLETED";
+}
+
+export function getTxRefundAmount(tx) {
+  if (!tx) return 0;
+  if (tx.refundAmount !== undefined && tx.refundAmount !== null && Number(tx.refundAmount) > 0) {
+    return Number(tx.refundAmount);
+  }
+  if (tx.returnDetails?.refundAmount !== undefined && tx.returnDetails?.refundAmount !== null) {
+    return Number(tx.returnDetails.refundAmount);
+  }
+  if (Array.isArray(tx.returnDetails?.returnedItems)) {
+    return tx.returnDetails.returnedItems.reduce((sum, item) => {
+      const q = Number(item.returnQty || item.returnedQty || 1);
+      const p = Number(item.itemRefundAmount || item.netUnitPrice || item.price || 0);
+      return sum + (item.itemRefundAmount ? Number(item.itemRefundAmount) : (q * p));
+    }, 0);
+  }
+  return 0;
+}
+

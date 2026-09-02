@@ -5,7 +5,7 @@ import BackupRestoreModal from "./BackupRestoreModal";
 import CustomDateInput from "./CustomDateInput";
 import PendingPaymentsView from "./PendingPaymentsView";
 import ViewBillModal from "./ViewBillModal";
-import { factoryReset } from "../utils/api";
+import { factoryReset, getEffectiveTxStatus, getTxRefundAmount } from "../utils/api";
 import {
   TrendingUp,
   QrCode,
@@ -1802,73 +1802,87 @@ export default function OwnerDashboard({
 
                     {/* Amount Column */}
                     <td>
-                      {tx.status === "RETURNED" || tx.type === "RETURN" ? (
-                        <div>
-                          <div style={{ fontWeight: "700", color: "var(--accent-rose)" }}>
-                            -₹{(tx.refundAmount || Math.abs(tx.grandTotal)).toFixed(2)}
-                          </div>
-                          <div style={{ fontSize: "10px", color: "var(--accent-rose)", fontWeight: "600" }}>Total Refund</div>
-                        </div>
-                      ) : tx.status === "PARTIALLY_RETURNED" ? (
-                        <div>
-                          <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
-                            Net Kept: ₹{Math.max(0, (tx.grandTotal || 0) - (tx.refundAmount || 0)).toFixed(2)}
-                          </div>
-                          <div style={{ fontSize: "10px", color: "var(--accent-amber)", fontWeight: "600" }}>
-                            Refunded: -₹{(tx.refundAmount || (tx.items || []).reduce((s, i) => s + ((i.returnedQty || 0) * (i.netUnitPrice || i.price || 0)), 0)).toFixed(2)}
-                          </div>
-                          <div style={{ fontSize: "9.5px", color: "var(--text-muted)" }}>
-                            Original: ₹{(tx.grandTotal || 0).toFixed(2)}
-                          </div>
-                        </div>
+                      {(() => {
+                        const effectiveStatus = getEffectiveTxStatus(tx);
+                        const refundAmt = getTxRefundAmount(tx);
 
-                      ) : (tx.paymentStatus === "PENDING" || tx.paymentStatus === "PARTIALLY_PAID" || tx.paymentMode === "PENDING" || (tx.pendingAmount !== undefined && tx.pendingAmount > 0)) ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        if (effectiveStatus === "RETURNED" || tx.type === "RETURN") {
+                          return (
+                            <div>
+                              <div style={{ fontWeight: "700", color: "var(--accent-rose)" }}>
+                                -₹{(refundAmt || Math.abs(tx.grandTotal)).toFixed(2)}
+                              </div>
+                              <div style={{ fontSize: "10px", color: "var(--accent-rose)", fontWeight: "600" }}>Total Refund</div>
+                            </div>
+                          );
+                        }
+                        if (effectiveStatus === "PARTIALLY_RETURNED") {
+                          return (
+                            <div>
+                              <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
+                                Net Kept: ₹{Math.max(0, (tx.grandTotal || 0) - refundAmt).toFixed(2)}
+                              </div>
+                              <div style={{ fontSize: "10px", color: "var(--accent-amber)", fontWeight: "600" }}>
+                                Refunded: -₹{refundAmt.toFixed(2)}
+                              </div>
+                              <div style={{ fontSize: "9.5px", color: "var(--text-muted)" }}>
+                                Original: ₹{(tx.grandTotal || 0).toFixed(2)}
+                              </div>
+                            </div>
+                          );
+                        }
+                        if (tx.paymentStatus === "PENDING" || tx.paymentStatus === "PARTIALLY_PAID" || tx.paymentMode === "PENDING" || (tx.pendingAmount !== undefined && tx.pendingAmount > 0)) {
+                          return (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                              <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
+                                ₹{(tx.grandTotal || 0).toFixed(2)}
+                              </div>
+                              {(tx.advanceAmount || 0) > 0 && (
+                                <div style={{ fontSize: "10px", color: "var(--accent-emerald)", fontWeight: "600" }}>
+                                  Advance: ₹{tx.advanceAmount.toFixed(2)}
+                                </div>
+                              )}
+                              <div style={{
+                                fontSize: "11px", fontWeight: "800",
+                                color: "var(--accent-rose)",
+                                background: "rgba(239,68,68,0.12)",
+                                borderRadius: "4px", padding: "1px 5px",
+                                display: "inline-block"
+                              }}>
+                                Due: ₹{(tx.pendingAmount !== undefined ? tx.pendingAmount : tx.grandTotal).toFixed(2)}
+                              </div>
+                              {tx.settledHistory && tx.settledHistory.length > 0 && (
+                                <div style={{ fontSize: "9px", color: "var(--text-muted)", marginTop: "2px" }}>
+                                  {tx.settledHistory.map((e, i) => (
+                                    <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "6px" }}>
+                                      <span>{e.settledBy}:</span>
+                                      <span style={{ color: "var(--accent-emerald)", fontWeight: "700" }}>+₹{(e.amount || 0).toFixed(2)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return (
                           <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
                             ₹{(tx.grandTotal || 0).toFixed(2)}
                           </div>
-                          {(tx.advanceAmount || 0) > 0 && (
-                            <div style={{ fontSize: "10px", color: "var(--accent-emerald)", fontWeight: "600" }}>
-                              Advance: ₹{tx.advanceAmount.toFixed(2)}
-                            </div>
-                          )}
-                          <div style={{
-                            fontSize: "11px", fontWeight: "800",
-                            color: "var(--accent-rose)",
-                            background: "rgba(239,68,68,0.12)",
-                            borderRadius: "4px", padding: "1px 5px",
-                            display: "inline-block"
-                          }}>
-                            Due: ₹{(tx.pendingAmount !== undefined ? tx.pendingAmount : tx.grandTotal).toFixed(2)}
-                          </div>
-                          {tx.settledHistory && tx.settledHistory.length > 0 && (
-                            <div style={{ fontSize: "9px", color: "var(--text-muted)", marginTop: "2px" }}>
-                              {tx.settledHistory.map((e, i) => (
-                                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "6px" }}>
-                                  <span>{e.settledBy}:</span>
-                                  <span style={{ color: "var(--accent-emerald)", fontWeight: "700" }}>+₹{(e.amount || 0).toFixed(2)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{ fontWeight: "700", color: "var(--accent-emerald)" }}>
-                          ₹{(tx.grandTotal || 0).toFixed(2)}
-                        </div>
-                      )}
+                        );
+                      })()}
                     </td>
 
                     {/* Status Column */}
                     <td>
                       {(() => {
-                        const isCancelled = tx.status === "CANCELLED";
-                        const isReturned = tx.status === "RETURNED" || tx.type === "RETURN";
-                        const isPartiallyReturned = tx.status === "PARTIALLY_RETURNED";
+                        const effectiveStatus = getEffectiveTxStatus(tx);
+                        const isCancelled = effectiveStatus === "CANCELLED";
+                        const isReturned = effectiveStatus === "RETURNED" || tx.type === "RETURN";
+                        const isPartiallyReturned = effectiveStatus === "PARTIALLY_RETURNED";
                         const isPending = tx.paymentMode === "PENDING" || tx.paymentStatus === "PENDING" || (tx.pendingAmount !== undefined && tx.pendingAmount >= (tx.grandTotal || 0));
                         const isPartiallyPaid = tx.paymentStatus === "PARTIALLY_PAID" || (tx.pendingAmount !== undefined && tx.pendingAmount > 0 && tx.pendingAmount < (tx.grandTotal || 0));
 
-                        let label = tx.status || "COMPLETED";
+                        let label = effectiveStatus || "COMPLETED";
                         let bg = "rgba(16,185,129,0.15)";
                         let color = "var(--accent-emerald)";
 
@@ -1913,7 +1927,7 @@ export default function OwnerDashboard({
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: "6px" }}>
-                        {tx.status === "CANCELLED" ? (
+                        {getEffectiveTxStatus(tx) === "CANCELLED" ? (
                           <button
                             onClick={() => onUncancelBill(tx.billNo, tx.id)}
                             style={{
@@ -1979,7 +1993,7 @@ export default function OwnerDashboard({
                             >
                               Cancel
                             </button>
-                            {tx.type !== 'RETURN' && tx.status !== 'RETURNED' && (
+                            {tx.type !== 'RETURN' && getEffectiveTxStatus(tx) !== 'RETURNED' && (
                               <button
                                 onClick={() => setReturnModalTransaction(tx)}
                                 style={{
@@ -1995,7 +2009,6 @@ export default function OwnerDashboard({
                                 Return
                               </button>
                             )}
-
                           </>
                         )}
                       </div>

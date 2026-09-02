@@ -22,6 +22,7 @@ import {
 import ReturnModal from "./ReturnModal";
 import PendingPaymentsView from "./PendingPaymentsView";
 import ViewBillModal from "./ViewBillModal";
+import { getEffectiveTxStatus } from "../utils/api";
 
 export default function BillingView({
   products = [],
@@ -802,44 +803,49 @@ export default function BillingView({
                       })()}
                     </td>
                     <td>
-                      <span
-                        style={{
-                          padding: "4px 8px",
-                          borderRadius: "12px",
-                          fontSize: "11px",
-                          fontWeight: "700",
-                          background:
-                            tx.status === "RETURNED" || tx.type === "RETURN"
-                              ? "rgba(244, 63, 94, 0.15)"
-                              : tx.status === "PARTIALLY_RETURNED"
-                                ? "rgba(245, 158, 11, 0.15)"
-                                : tx.status === "COMPLETED"
-                                  ? "rgba(16,185,129,0.15)"
-                                  : "rgba(244, 63, 94, 0.15)",
-                          color:
-                            tx.status === "RETURNED" || tx.type === "RETURN"
-                              ? "var(--accent-rose)"
-                              : tx.status === "PARTIALLY_RETURNED"
-                                ? "var(--accent-amber)"
-                                : tx.status === "COMPLETED"
-                                  ? "var(--accent-emerald)"
-                                  : "var(--accent-rose)",
-                          border:
-                            tx.status === "RETURNED" || tx.type === "RETURN"
-                              ? "1px solid rgba(244, 63, 94, 0.4)"
-                              : tx.status === "PARTIALLY_RETURNED"
-                                ? "1px solid rgba(245, 158, 11, 0.4)"
-                                : tx.status === "COMPLETED"
-                                  ? "1px solid rgba(16, 185, 129, 0.4)"
-                                  : "1px solid rgba(244, 63, 94, 0.4)",
-                        }}
-                      >
-                        {tx.status === "RETURNED" || tx.type === "RETURN"
-                          ? "RETURNED"
-                          : tx.status === "PARTIALLY_RETURNED"
-                            ? "PARTIALLY RET"
-                            : tx.status}
-                      </span>
+                      {(() => {
+                        const effectiveStatus = getEffectiveTxStatus(tx);
+                        return (
+                          <span
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: "12px",
+                              fontSize: "11px",
+                              fontWeight: "700",
+                              background:
+                                effectiveStatus === "RETURNED" || tx.type === "RETURN"
+                                  ? "rgba(244, 63, 94, 0.15)"
+                                  : effectiveStatus === "PARTIALLY_RETURNED"
+                                    ? "rgba(245, 158, 11, 0.15)"
+                                    : effectiveStatus === "COMPLETED"
+                                      ? "rgba(16,185,129,0.15)"
+                                      : "rgba(244, 63, 94, 0.15)",
+                              color:
+                                effectiveStatus === "RETURNED" || tx.type === "RETURN"
+                                  ? "var(--accent-rose)"
+                                  : effectiveStatus === "PARTIALLY_RETURNED"
+                                    ? "var(--accent-amber)"
+                                    : effectiveStatus === "COMPLETED"
+                                      ? "var(--accent-emerald)"
+                                      : "var(--accent-rose)",
+                              border:
+                                effectiveStatus === "RETURNED" || tx.type === "RETURN"
+                                  ? "1px solid rgba(244, 63, 94, 0.4)"
+                                  : effectiveStatus === "PARTIALLY_RETURNED"
+                                    ? "1px solid rgba(245, 158, 11, 0.4)"
+                                    : effectiveStatus === "COMPLETED"
+                                      ? "1px solid rgba(16, 185, 129, 0.4)"
+                                      : "1px solid rgba(244, 63, 94, 0.4)",
+                            }}
+                          >
+                            {effectiveStatus === "RETURNED" || tx.type === "RETURN"
+                              ? "RETURNED"
+                              : effectiveStatus === "PARTIALLY_RETURNED"
+                                ? "PARTIALLY RET"
+                                : effectiveStatus}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: "6px" }}>
@@ -881,7 +887,7 @@ export default function BillingView({
                                 Cancel
                               </button>
                             )}
-                            {tx.status !== "RETURNED" && tx.type !== "RETURN" && (
+                            {getEffectiveTxStatus(tx) !== "RETURNED" && tx.type !== "RETURN" && (
                               <button
                                 onClick={() => setReturnModalTransaction(tx)}
                                 style={{

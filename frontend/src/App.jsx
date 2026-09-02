@@ -33,6 +33,8 @@ import {
   syncOfflineTransactions,
   enqueueOfflineTransaction,
   getOfflineQueueCount,
+  getEffectiveTxStatus,
+  getTxRefundAmount,
 } from "./utils/api";
 import { INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS, INITIAL_WORKERS } from "./data/initialData";
 import { secureLocalStorage, decryptEncryptedObject } from "./utils/storageCrypto";
@@ -179,8 +181,13 @@ export default function App() {
       }
 
       if (Array.isArray(apiTx)) {
-        setTransactions(apiTx);
-        secureLocalStorage.setItem("billbook_transactions", apiTx);
+        const normalizedTx = apiTx.map((t) => ({
+          ...t,
+          status: getEffectiveTxStatus(t),
+          refundAmount: getTxRefundAmount(t),
+        }));
+        setTransactions(normalizedTx);
+        secureLocalStorage.setItem("billbook_transactions", normalizedTx);
       }
 
       if (Array.isArray(apiProducts)) {

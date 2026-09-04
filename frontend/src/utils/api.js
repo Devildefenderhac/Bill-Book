@@ -89,9 +89,89 @@ export async function checkApiHealth(targetUrl = null) {
   }
 }
 
+// ── IMMUTABLE LOCAL TRANSACTION LEDGER & DISK PERSISTENCE ────────
+const LOCAL_TX_LEDGER_KEY = "billbook_local_tx_ledger";
+
+// Save a newly cut bill to local permanent ledger so late-night / offline bills are NEVER lost
+export function saveTransactionToLedger(transaction) {
+  if (!transaction || !transaction.billNo) return;
+  try {
+    const raw = localStorage.getItem(LOCAL_TX_LEDGER_KEY);
+    const ledger = raw ? JSON.parse(raw) : [];
+    const index = ledger.findIndex((t) => t.billNo === transaction.billNo);
+    if (index >= 0) {
+      ledger[index] = { ...ledger[index], ...transaction, _savedAt: new Date().toISOString() };
+    } else {
+      ledger.push({
+        ...transaction,
+        counter: transaction.counter || getActiveCounter(),
+        _savedAt: new Date().toISOString(),
+      });
+    }
+    // Retain up to 2000 most recent transactions locally
+    if (ledger.length > 2000) {
+      ledger.splice(0, ledger.length - 2000);
+    }
+    localStorage.setItem(LOCAL_TX_LEDGER_KEY, JSON.stringify(ledger));
+  } catch (e) {
+    console.warn("Could not save to local ledger:", e);
+  }
+}
+
+// Get all bills from local permanent ledger
+export function getLocalLedgerTransactions() {
+  try {
+    const raw = localStorage.getItem(LOCAL_TX_LEDGER_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// Clear local ledger upon deliberate Factory Reset
+export function clearLocalLedger() {
+  try {
+    localStorage.removeItem(LOCAL_TX_LEDGER_KEY);
+    localStorage.removeItem(OFFLINE_QUEUE_KEY);
+  } catch (e) {}
+}
+
+// Reconcile and push any local ledger bills that are missing from the cloud/server
+export async function reconcileMissingLedgerBills(serverTransactions = []) {
+  try {
+    const ledger = getLocalLedgerTransactions();
+    if (!Array.isArray(ledger) || ledger.length === 0) return { reSyncedCount: 0 };
+
+    const serverBillNos = new Set((serverTransactions || []).map((t) => t.billNo).filter(Boolean));
+    const missingBills = ledger.filter((t) => t.billNo && !serverBillNos.has(t.billNo));
+
+    if (missingBills.length === 0) return { reSyncedCount: 0 };
+
+    console.log(`🔄 Reconciling ${missingBills.length} locally cut bills to cloud server...`);
+    let reSyncedCount = 0;
+
+    for (const tx of missingBills) {
+      try {
+        const res = await processSale(tx, true);
+        if (res && (res.success !== false || res.alreadyExists)) {
+          reSyncedCount++;
+        }
+      } catch (err) {
+        console.warn(`Failed to re-sync missing bill ${tx.billNo}:`, err);
+      }
+    }
+
+    return { reSyncedCount };
+  } catch (err) {
+    console.error("Error in reconcileMissingLedgerBills:", err);
+    return { reSyncedCount: 0 };
+  }
+}
+
 // Queue a transaction to be uploaded when internet / cloud backend is online
 export function enqueueOfflineTransaction(transaction) {
   try {
+    saveTransactionToLedger(transaction);
     const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
     const queue = raw ? JSON.parse(raw) : [];
     const exists = queue.some((tx) => tx.billNo === transaction.billNo);
@@ -270,6 +350,9 @@ export async function fetchNextBillNumber() {
 
 // ── TRANSACTIONS / SALES API ──────────────────────────────
 export async function processSale(transaction, isSilentOffline = false) {
+  // Always commit immediately to local permanent ledger first so no late-night / 11 PM bills are lost
+  saveTransactionToLedger(transaction);
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000);

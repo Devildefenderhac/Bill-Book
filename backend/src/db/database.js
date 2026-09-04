@@ -476,6 +476,42 @@ const fs = require('fs');
 const SNAPSHOT_DIR = path.join(__dirname, '../../snapshots');
 const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'live_state_snapshot.json');
 
+function clearLiveSnapshot(databaseInstance = null, cleanMasterAdmin = null) {
+  const d = databaseInstance || db;
+  try {
+    if (!fs.existsSync(SNAPSHOT_DIR)) {
+      fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
+    }
+    const cleanWorkers = cleanMasterAdmin
+      ? [cleanMasterAdmin]
+      : [
+          {
+            id: 'master-admin-01',
+            username: 'DEVIL7061',
+            password: 'ENC::82ad0ec56cc83878af795139037fa36c:93f8b5bcbcf54430ae8f1bde8c1e3937',
+            name: 'Devil Master Admin',
+            phone: '',
+            role: 'master_admin',
+            counter: 'Master Dashboard',
+            canCancelBills: 1,
+            canAccessMarketing: 1,
+          },
+        ];
+    const snapshot = {
+      timestamp: new Date().toISOString(),
+      isResetClean: true,
+      workers: cleanWorkers,
+      transactions: [],
+      products: INITIAL_PRODUCTS,
+      settings: INITIAL_STORE_SETTINGS,
+    };
+    fs.writeFileSync(SNAPSHOT_FILE, JSON.stringify(snapshot, null, 2), 'utf8');
+    console.log('🧹 Live snapshot reset to clean state with Master Admin');
+  } catch (err) {
+    console.warn('Could not clear live snapshot:', err.message);
+  }
+}
+
 function saveLiveSnapshot(databaseInstance = null) {
   const d = databaseInstance || db;
   if (!d) return;
@@ -493,7 +529,7 @@ function saveLiveSnapshot(databaseInstance = null) {
             const snapshot = {
               timestamp: new Date().toISOString(),
               workers,
-              transactions,
+              transactions: transactions || [],
               products: products || [],
               settings: settings || null,
             };
@@ -527,26 +563,28 @@ function restoreLiveSnapshotIfAvailable(databaseInstance = null) {
       stmt.finalize();
     }
 
-    if (Array.isArray(snapshot.transactions) && snapshot.transactions.length > 0) {
-      const stmtT = d.prepare(`
-        INSERT OR REPLACE INTO transactions (
-          id, billNo, timestamp, customerName, customerPhone, items,
-          subtotal, discount, grandTotal, paymentMode, paymentStatus,
-          pendingAmount, advanceAmount, cashTendered, changeReturned,
-          upiRefNo, cardRefNo, workerName, counter, status, printCount,
-          returnDetails, settlementDetails
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      snapshot.transactions.forEach((tx) => {
-        stmtT.run([
-          tx.id, tx.billNo, tx.timestamp, tx.customerName, tx.customerPhone, tx.items,
-          tx.subtotal, tx.discount, tx.grandTotal, tx.paymentMode, tx.paymentStatus,
-          tx.pendingAmount, tx.advanceAmount, tx.cashTendered, tx.changeReturned,
-          tx.upiRefNo, tx.cardRefNo, tx.workerName, tx.counter || 'Counter 1', tx.status,
-          tx.printCount || 1, tx.returnDetails || null, tx.settlementDetails || null
-        ]);
-      });
-      stmtT.finalize();
+    if (Array.isArray(snapshot.transactions)) {
+      if (snapshot.transactions.length > 0) {
+        const stmtT = d.prepare(`
+          INSERT OR REPLACE INTO transactions (
+            id, billNo, timestamp, customerName, customerPhone, items,
+            subtotal, discount, grandTotal, paymentMode, paymentStatus,
+            pendingAmount, advanceAmount, cashTendered, changeReturned,
+            upiRefNo, cardRefNo, workerName, counter, status, printCount,
+            returnDetails, settlementDetails
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        snapshot.transactions.forEach((tx) => {
+          stmtT.run([
+            tx.id, tx.billNo, tx.timestamp, tx.customerName, tx.customerPhone, tx.items,
+            tx.subtotal, tx.discount, tx.grandTotal, tx.paymentMode, tx.paymentStatus,
+            tx.pendingAmount, tx.advanceAmount, tx.cashTendered, tx.changeReturned,
+            tx.upiRefNo, tx.cardRefNo, tx.workerName, tx.counter || 'Counter 1', tx.status,
+            tx.printCount || 1, tx.returnDetails || null, tx.settlementDetails || null
+          ]);
+        });
+        stmtT.finalize();
+      }
     }
 
     console.log('✅ Auto-restored state from live snapshot successfully');
@@ -563,6 +601,7 @@ module.exports = {
   initDb,
   getDb,
   saveLiveSnapshot,
+  clearLiveSnapshot,
   restoreLiveSnapshotIfAvailable,
   INITIAL_STORE_SETTINGS,
   INITIAL_PRODUCTS,

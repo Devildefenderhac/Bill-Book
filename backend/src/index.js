@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { initDb, getDb, INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS, INITIAL_WORKERS } = require('./db/database');
+const { initDb, getDb, clearLiveSnapshot, saveLiveSnapshot, INITIAL_STORE_SETTINGS, INITIAL_PRODUCTS, INITIAL_WORKERS } = require('./db/database');
 const { verifyApiKey } = require('./middleware/auth');
 
 const app = express();
@@ -67,12 +67,12 @@ app.post('/api/factory-reset', verifyApiKey, (req, res) => {
 
   // Find existing Master Admin record to preserve credentials
   db.get(
-    `SELECT * FROM workers WHERE role = 'master_admin' OR id = 'master-admin-01' OR username = 'devil7061' LIMIT 1`,
+    `SELECT * FROM workers WHERE role = 'master_admin' OR id = 'master-admin-01' OR username = 'DEVIL7061' OR username = 'devil7061' LIMIT 1`,
     [],
     (err, masterRow) => {
       const preservedMaster = masterRow || {
         id: 'master-admin-01',
-        username: 'devil7061',
+        username: 'DEVIL7061',
         password: 'password',
         name: 'Devil Master Admin',
         phone: '9876543210',
@@ -94,7 +94,7 @@ app.post('/api/factory-reset', verifyApiKey, (req, res) => {
         );
         wStmt.run([
           preservedMaster.id || 'master-admin-01',
-          preservedMaster.username || 'devil7061',
+          preservedMaster.username || 'DEVIL7061',
           preservedMaster.password || 'password',
           preservedMaster.name || 'Devil Master Admin',
           preservedMaster.phone || '',
@@ -105,18 +105,32 @@ app.post('/api/factory-reset', verifyApiKey, (req, res) => {
         ]);
         wStmt.finalize();
 
+        // Seed clean products
+        const pStmt = db.prepare(`
+          INSERT INTO products (id, code, name, category, sizes, price, mrp, stock, barcode)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        INITIAL_PRODUCTS.forEach((p) => {
+          pStmt.run([p.id, p.code, p.name, p.category, JSON.stringify(p.sizes), p.price, p.mrp, p.stock, p.barcode]);
+        });
+        pStmt.finalize();
+
         // Reset Settings to initial clean store profile
         const s = INITIAL_STORE_SETTINGS;
         db.run(
           `INSERT INTO settings (id, storeName, tagline, address, city, phone, gstin, upiId, upiName, billPrefix, receiptPaper, workerName)
            VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [s.storeName, s.tagline, s.address, s.city, s.phone, s.gstin, s.upiId, s.upiName, s.billPrefix, s.receiptPaper, preservedMaster.name || 'Store Owner']
-        );
+          [s.storeName, s.tagline, s.address, s.city, s.phone, s.gstin, s.upiId, s.upiName, s.billPrefix, s.receiptPaper, preservedMaster.name || 'Store Owner'],
+          (sErr) => {
+            // Immediately overwrite snapshot with clean post-reset state so container restart cannot resurrect old bills or staff accounts
+            clearLiveSnapshot(db, preservedMaster);
 
-        res.json({
-          success: true,
-          message: 'Factory reset completed. All sales data, products, and user accounts deleted. Master Admin preserved.',
-        });
+            res.json({
+              success: true,
+              message: 'Factory reset completed. All sales data and staff accounts cleared. Master Admin preserved.',
+            });
+          }
+        );
       });
     }
   );

@@ -5,7 +5,8 @@ import BackupRestoreModal from "./BackupRestoreModal";
 import CustomDateInput from "./CustomDateInput";
 import PendingPaymentsView from "./PendingPaymentsView";
 import ViewBillModal from "./ViewBillModal";
-import { factoryReset, getEffectiveTxStatus, getTxRefundAmount } from "../utils/api";
+import { factoryReset, clearLocalLedger, getEffectiveTxStatus, getTxRefundAmount } from "../utils/api";
+import { secureLocalStorage } from "../utils/storageCrypto";
 import {
   TrendingUp,
   QrCode,
@@ -156,6 +157,11 @@ export default function OwnerDashboard({
       const res = await factoryReset();
       setIsResetting(false);
       if (res && res.success) {
+        // Clear local transaction ledger and caches so old transactions never resurface
+        clearLocalLedger();
+        secureLocalStorage.removeItem("billbook_transactions");
+        secureLocalStorage.removeItem("billbook_offline_queue");
+
         setIsResetModalOpen(false);
         setResetConfirmText("");
         if (onReloadData) await onReloadData();

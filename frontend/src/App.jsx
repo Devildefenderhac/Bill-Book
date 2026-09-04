@@ -33,6 +33,9 @@ import {
   syncOfflineTransactions,
   enqueueOfflineTransaction,
   getOfflineQueueCount,
+  getLocalLedgerTransactions,
+  reconcileMissingLedgerBills,
+  clearLocalLedger,
   getEffectiveTxStatus,
   getTxRefundAmount,
 } from "./utils/api";
@@ -181,7 +184,27 @@ export default function App() {
       }
 
       if (Array.isArray(apiTx)) {
-        const normalizedTx = apiTx.map((t) => ({
+        const localLedger = getLocalLedgerTransactions();
+        const serverBillMap = new Map();
+        apiTx.forEach((t) => {
+          if (t && t.billNo) serverBillMap.set(t.billNo, t);
+        });
+
+        // If local transactions exist that server missed (e.g. late night bills after server sleep), preserve them
+        const missingLocalBills = (localLedger || []).filter((t) => t && t.billNo && !serverBillMap.has(t.billNo));
+        if (missingLocalBills.length > 0) {
+          missingLocalBills.forEach((mb) => {
+            serverBillMap.set(mb.billNo, mb);
+          });
+          // Re-sync missing local bills to server in background
+          reconcileMissingLedgerBills(apiTx);
+        }
+
+        const combinedTxs = Array.from(serverBillMap.values()).sort((a, b) => {
+          return new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0);
+        });
+
+        const normalizedTx = combinedTxs.map((t) => ({
           ...t,
           status: getEffectiveTxStatus(t),
           refundAmount: getTxRefundAmount(t),
